@@ -1,3 +1,18 @@
+# Binaries & build artifacts
 *.exe
 *.exe~
+glowy
+bin/
+dist/
+
+# Test artifacts
+*.out
+coverage.txt
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 *~
+*.tmp

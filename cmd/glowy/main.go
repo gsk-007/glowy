@@ -16,6 +16,12 @@ import (
 )
 
 var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
+var (
 	flagPager       bool
 	flagRaw         bool
 	flagLineNumbers bool
@@ -37,11 +43,13 @@ func main() {
 	initConsole()
 
 	rootCmd := &cobra.Command{
-		Use:   "glowy [file | dir]",
-		Short: "glowy — Fast, local-first Windows & cross-platform Markdown reader",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runApp,
+		Use:     "glowy [file | dir]",
+		Short:   "glowy — Fast, local-first Windows & cross-platform Markdown reader",
+		Version: fmt.Sprintf("%s (%s) built on %s", version, commit, date),
+		Args:    cobra.MaximumNArgs(1),
+		RunE:    runApp,
 	}
+	rootCmd.SetVersionTemplate("glowy {{.Version}}\n")
 
 	rootCmd.Flags().BoolVarP(&flagPager, "pager", "p", false, "Open directly in the built-in interactive TUI pager")
 	rootCmd.Flags().BoolVarP(&flagRaw, "raw", "r", false, "Render syntax-highlighted raw Markdown source")
