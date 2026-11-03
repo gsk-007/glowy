@@ -9,6 +9,11 @@ import (
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
+// StripANSI strips ANSI color and style escape sequences from a string.
+func StripANSI(s string) string {
+	return ansiPattern.ReplaceAllString(s, "")
+}
+
 type SearchMatch struct {
 	LineIndex int
 	StartCol  int

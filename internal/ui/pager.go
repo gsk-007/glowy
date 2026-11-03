@@ -45,6 +45,7 @@ type PagerModel struct {
 	ReturnToBrowser bool
 	Canceled        bool
 	Standalone      bool // True if opened directly via glowy -p
+	InitialLoad     bool
 }
 
 // NewPagerModel creates a new PagerModel for the given file content.
@@ -64,6 +65,7 @@ func NewPagerModel(filePath string, source string, theme *config.UITheme, mode s
 	ti.CharLimit = 100
 
 	vp := viewport.New(80, 24)
+	vp.YOffset = 0
 
 	var watcher *fsnotify.Watcher
 	if filePath != "" && filePath != "-" {
@@ -85,6 +87,7 @@ func NewPagerModel(filePath string, source string, theme *config.UITheme, mode s
 		CurrentMatchIdx: -1,
 		Watcher:         watcher,
 		Standalone:      standalone,
+		InitialLoad:     true,
 	}
 
 	return m, nil
@@ -108,6 +111,12 @@ func (m *PagerModel) reRender() error {
 		m.applySearchHighlight()
 	} else {
 		m.Viewport.SetContent(res.Content)
+	}
+
+	if m.InitialLoad {
+		m.Viewport.GotoTop()
+		m.Viewport.YOffset = 0
+		m.InitialLoad = false
 	}
 
 	return nil
@@ -134,7 +143,11 @@ func (m *PagerModel) applySearchHighlight() {
 
 	oldY := m.Viewport.YOffset
 	m.Viewport.SetContent(strings.Join(highlighted, "\n"))
-	m.Viewport.SetYOffset(oldY)
+	if !m.InitialLoad {
+		m.Viewport.SetYOffset(oldY)
+	} else {
+		m.Viewport.GotoTop()
+	}
 }
 
 func (m *PagerModel) scrollToMatch(idx int) {
@@ -205,15 +218,27 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 		m.Viewport.Width = msg.Width
-		m.Viewport.Height = msg.Height - 1 // Leave 1 line for status bar
-		oldPct := m.Viewport.ScrollPercent()
-		_ = m.reRender()
-		newTotal := m.Viewport.TotalLineCount()
-		newY := int(float64(newTotal-m.Viewport.Height) * oldPct)
-		if newY < 0 {
-			newY = 0
+		vpHeight := msg.Height - 2 // Strictly 1 line top header, 1 line status bar
+		if vpHeight < 1 {
+			vpHeight = 1
 		}
-		m.Viewport.SetYOffset(newY)
+		m.Viewport.Height = vpHeight
+
+		if m.InitialLoad {
+			_ = m.reRender()
+			m.Viewport.GotoTop()
+			m.Viewport.YOffset = 0
+			m.InitialLoad = false
+		} else {
+			oldPct := m.Viewport.ScrollPercent()
+			_ = m.reRender()
+			newTotal := m.Viewport.TotalLineCount()
+			newY := int(float64(newTotal-m.Viewport.Height) * oldPct)
+			if newY < 0 {
+				newY = 0
+			}
+			m.Viewport.SetYOffset(newY)
+		}
 		return m, nil
 
 	case tea.MouseMsg:
@@ -249,6 +274,7 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 		case "q", "ctrl+c":
 			if m.Watcher != nil {
 				_ = m.Watcher.Close()
+				m.Watcher = nil
 			}
 			m.Canceled = true
 			return m, tea.Quit
@@ -269,6 +295,7 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 
 			if m.Watcher != nil {
 				_ = m.Watcher.Close()
+				m.Watcher = nil
 			}
 
 			if m.Standalone {
@@ -344,42 +371,73 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 }
 
 func (m PagerModel) View() string {
-	if m.Width == 0 {
+	if m.Width == 0 || m.Height == 0 {
 		return ""
 	}
 
-	var sb strings.Builder
-	sb.WriteString(m.Viewport.View())
-	sb.WriteString("\n")
+	// 1. Top Header Bar (1 line fixed)
+	displayPath := m.FilePath
+	if displayPath == "" || displayPath == "-" {
+		displayPath = "stdin"
+	} else {
+		displayPath = filepath.ToSlash(displayPath)
+	}
 
-	// Render bottom status bar
-	modeDisplay := "Formatted"
+	badgeText := m.Theme.Badge.Render("DOC")
+	headerLeft := fmt.Sprintf(" %s %s %s", badgeText, m.Theme.Muted.Render("❯"), m.Theme.RowNormal.Bold(true).Render(displayPath))
+
+	fmtBadge := "[FMT]"
 	if m.Mode == "raw" {
-		modeDisplay = "Raw"
+		fmtBadge = "[RAW]"
 	}
-
-	pct := int(m.Viewport.ScrollPercent() * 100)
-	currentLine := m.Viewport.YOffset + 1
-
-	statusParts := []string{
-		fmt.Sprintf(" %s ", m.FileName),
-		fmt.Sprintf(" %s ", modeDisplay),
-		fmt.Sprintf(" Ln %d (%d%%) ", currentLine, pct),
-	}
-
+	lnBadge := "[LN: OFF]"
 	if m.LineNumbers {
-		statusParts = append(statusParts, " [LN:On] ")
+		lnBadge = "[LN: ON]"
+	}
+	headerRight := fmt.Sprintf("%s %s ", m.Theme.Badge.Render(fmtBadge), m.Theme.TabActive.Render(lnBadge))
+
+	leftLen := len(StripANSI(headerLeft))
+	rightLen := len(StripANSI(headerRight))
+	spaceLen := m.Width - leftLen - rightLen
+	if spaceLen < 1 {
+		spaceLen = 1
+	}
+	headerLine := headerLeft + strings.Repeat(" ", spaceLen) + headerRight
+	headerRendered := m.Theme.PagerHeader.Width(m.Width).MaxHeight(1).Render(headerLine)
+
+	// 2. Middle Viewport (strictly m.Height - 2 lines)
+	viewportView := m.Viewport.View()
+
+	// 3. Bottom Status & Command Bar (1 line fixed)
+	hints := " ↑/↓ scroll • / search • r raw • l lines • esc back • q quit "
+	hintRendered := m.Theme.StatusBar.Render(hints)
+
+	scrollStatus := " TOP "
+	if m.Viewport.AtBottom() {
+		scrollStatus = " BOT "
+	} else if pct := int(m.Viewport.ScrollPercent() * 100); pct > 0 {
+		scrollStatus = fmt.Sprintf(" Ln %d • %d%% ", m.Viewport.YOffset+1, pct)
 	}
 
+	var rightInfo string
 	if m.Searching {
-		statusParts = append(statusParts, " "+m.SearchInput.View()+" ")
+		rightInfo = fmt.Sprintf(" %s • %s ", m.SearchInput.View(), scrollStatus)
 	} else if len(m.SearchMatches) > 0 {
-		statusParts = append(statusParts, fmt.Sprintf(" %d/%d matches ", m.CurrentMatchIdx+1, len(m.SearchMatches)))
+		rightInfo = fmt.Sprintf(" %d/%d matches • %s ", m.CurrentMatchIdx+1, len(m.SearchMatches), scrollStatus)
+	} else {
+		rightInfo = fmt.Sprintf(" %s ", scrollStatus)
 	}
+	rightRendered := m.Theme.StatusPill.Render(rightInfo)
 
-	statusText := strings.Join(statusParts, "│")
-	renderedStatus := m.Theme.StatusBar.Width(m.Width).Render(statusText)
-	sb.WriteString(renderedStatus)
+	hLen := len(StripANSI(hintRendered))
+	rLen := len(StripANSI(rightRendered))
+	footerSpaces := m.Width - hLen - rLen
+	if footerSpaces < 1 {
+		footerSpaces = 1
+	}
+	footerLine := hintRendered + strings.Repeat(" ", footerSpaces) + rightRendered
+	footerRendered := m.Theme.StatusBar.Width(m.Width).MaxHeight(1).Render(footerLine)
 
-	return sb.String()
+	// Combine strictly into m.Height lines
+	return headerRendered + "\n" + viewportView + "\n" + footerRendered
 }

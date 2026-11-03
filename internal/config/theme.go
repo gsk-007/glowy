@@ -18,12 +18,27 @@ type UITheme struct {
 	FolderHeader lipgloss.Style
 	Cursor       lipgloss.Style
 
+	Badge        lipgloss.Style
+	TabActive    lipgloss.Style
+	TabInactive  lipgloss.Style
+	TableHeader  lipgloss.Style
+	RowSelected  lipgloss.Style
+	RowNormal    lipgloss.Style
+	ColFileSel   lipgloss.Style
+	ColDir       lipgloss.Style
+	ColDate      lipgloss.Style
+	TreeBranch   lipgloss.Style
+	Divider      lipgloss.Style
+	KeyBadge     lipgloss.Style
+
 	BrowserTitle  lipgloss.Style
 	BrowserFilter lipgloss.Style
 	BrowserItem   lipgloss.Style
 	BrowserMatch  lipgloss.Style
 
-	PagerText lipgloss.Style
+	PagerHeader lipgloss.Style
+	PagerText   lipgloss.Style
+	PagerBadge  lipgloss.Style
 
 	StatusBar   lipgloss.Style
 	StatusPill  lipgloss.Style
@@ -122,6 +137,53 @@ func NewUITheme(s Scheme) *UITheme {
 			Foreground(cursor).
 			Bold(true),
 
+		Badge: lipgloss.NewStyle().
+			Background(cursor).
+			Foreground(bg).
+			Bold(true).
+			Padding(0, 1),
+
+		TabActive: lipgloss.NewStyle().
+			Background(selBg).
+			Foreground(fg).
+			Bold(true).
+			Padding(0, 1),
+
+		TabInactive: lipgloss.NewStyle().
+			Foreground(muted).
+			Padding(0, 1),
+
+		TableHeader: lipgloss.NewStyle().
+			Foreground(muted).
+			Bold(true),
+
+		RowSelected: lipgloss.NewStyle().
+			Background(selBg).
+			Foreground(fg),
+
+		RowNormal: lipgloss.NewStyle().
+			Foreground(fg),
+
+		ColFileSel: lipgloss.NewStyle().
+			Foreground(cursor).
+			Bold(true),
+
+		ColDir: lipgloss.NewStyle().
+			Foreground(muted),
+
+		ColDate: lipgloss.NewStyle().
+			Foreground(muted),
+
+		TreeBranch: lipgloss.NewStyle().
+			Foreground(border),
+
+		Divider: lipgloss.NewStyle().
+			Foreground(border),
+
+		KeyBadge: lipgloss.NewStyle().
+			Foreground(cursor).
+			Bold(true),
+
 		BrowserTitle: lipgloss.NewStyle().
 			Foreground(fg).
 			Background(sbBg).
@@ -138,6 +200,17 @@ func NewUITheme(s Scheme) *UITheme {
 		BrowserMatch: lipgloss.NewStyle().
 			Foreground(shBg).
 			Bold(true),
+
+		PagerHeader: lipgloss.NewStyle().
+			Background(sbBg).
+			Foreground(fg).
+			Bold(true),
+
+		PagerBadge: lipgloss.NewStyle().
+			Background(selBg).
+			Foreground(fg).
+			Bold(true).
+			Padding(0, 1),
 
 		PagerText: lipgloss.NewStyle().
 			Foreground(fg),

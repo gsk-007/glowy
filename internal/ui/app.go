@@ -95,11 +95,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			vpHeight := m.Height - 2
+			if vpHeight < 1 {
+				vpHeight = 1
+			}
 			pager.Width = m.Width
 			pager.Height = m.Height
 			pager.Viewport.Width = m.Width
-			pager.Viewport.Height = m.Height - 1
+			pager.Viewport.Height = vpHeight
 			_ = pager.reRender()
+			pager.Viewport.GotoTop()
+			pager.Viewport.YOffset = 0
 
 			m.Pager = &pager
 			m.State = StatePager
