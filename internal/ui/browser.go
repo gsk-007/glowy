@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,7 +22,7 @@ func (fl fileListSource) Len() int {
 	return len(fl)
 }
 
-// BrowserModel represents the simplified, unified TUI File Browser state.
+// BrowserModel represents the Card Feed TUI File Browser state.
 type BrowserModel struct {
 	AllFiles       []discovery.MarkdownFile
 	DisplayedFiles []discovery.MarkdownFile
@@ -40,25 +38,18 @@ type BrowserModel struct {
 	Theme        *config.UITheme
 	SelectedFile *discovery.MarkdownFile
 	Canceled     bool
-	Cwd          string
 }
 
-// NewBrowserModel initializes a unified File Browser model.
+// NewBrowserModel initializes the Card Feed File Browser model.
 func NewBrowserModel(files []discovery.MarkdownFile, theme *config.UITheme, defaultSort string) BrowserModel {
 	if defaultSort == "" {
 		defaultSort = "modified"
 	}
 
 	ti := textinput.New()
-	ti.Placeholder = "Type to search files by name or path..."
+	ti.Placeholder = "Search by name or path..."
 	ti.Prompt = "❯ "
 	ti.CharLimit = 64
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		cwd = "."
-	}
-	cwd = filepath.ToSlash(cwd)
 
 	m := BrowserModel{
 		AllFiles:     files,
@@ -67,7 +58,6 @@ func NewBrowserModel(files []discovery.MarkdownFile, theme *config.UITheme, defa
 		ScrollOffset: 0,
 		FilterInput:  ti,
 		Theme:        theme,
-		Cwd:          cwd,
 	}
 
 	m.applyFilterAndSort()
@@ -117,16 +107,20 @@ func (m *BrowserModel) cycleSort() {
 }
 
 func (m *BrowserModel) adjustScroll() {
-	bodyHeight := m.Height - 3 // Header (2 lines) + Footer (1 line)
+	bodyHeight := m.Height - 2 // Top bar (1) + Bottom bar (1)
 	if bodyHeight <= 0 {
-		bodyHeight = 10
+		bodyHeight = 9
+	}
+	visibleCards := bodyHeight / 3
+	if visibleCards < 1 {
+		visibleCards = 1
 	}
 
 	if m.Cursor < m.ScrollOffset {
 		m.ScrollOffset = m.Cursor
 	}
-	if m.Cursor >= m.ScrollOffset+bodyHeight {
-		m.ScrollOffset = m.Cursor - bodyHeight + 1
+	if m.Cursor >= m.ScrollOffset+visibleCards {
+		m.ScrollOffset = m.Cursor - visibleCards + 1
 	}
 	if m.ScrollOffset < 0 {
 		m.ScrollOffset = 0
@@ -200,9 +194,9 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			}
 
 		case "pgup", "u":
-			pageSize := (m.Height - 3) / 2
+			pageSize := (m.Height - 2) / 6
 			if pageSize < 1 {
-				pageSize = 5
+				pageSize = 2
 			}
 			m.Cursor -= pageSize
 			if m.Cursor < 0 {
@@ -211,9 +205,9 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			m.adjustScroll()
 
 		case "pgdown", "d":
-			pageSize := (m.Height - 3) / 2
+			pageSize := (m.Height - 2) / 6
 			if pageSize < 1 {
-				pageSize = 5
+				pageSize = 2
 			}
 			m.Cursor += pageSize
 			if m.Cursor >= len(m.DisplayedFiles) {
@@ -248,8 +242,8 @@ func (m BrowserModel) View() string {
 		return ""
 	}
 
-	// Strict height calculations
-	headerLinesCount := 2
+	// 1. Fixed Header & Footer lines
+	headerLinesCount := 1
 	footerLinesCount := 1
 	bodyHeight := m.Height - headerLinesCount - footerLinesCount
 	if bodyHeight < 1 {
@@ -257,11 +251,11 @@ func (m BrowserModel) View() string {
 	}
 
 	// ---------------------------------------------------------
-	// 1. TOP SEGMENTED UTILITY BAR (Line 0)
+	// 1. MINIMALIST TOP BAR (Line 0 - 1 line fixed)
 	// ---------------------------------------------------------
 	badge := m.Theme.Badge.Render(" GLOWY ")
-	cwdText := " 📁 " + m.Cwd
-	leftPart := badge + m.Theme.Muted.Render(cwdText)
+	fileCountStr := fmt.Sprintf(" %d markdown files", len(m.DisplayedFiles))
+	leftPart := badge + m.Theme.Muted.Render(fileCountStr)
 
 	sortLabel := "Modified ↓"
 	switch m.SortMode {
@@ -280,8 +274,7 @@ func (m BrowserModel) View() string {
 	} else {
 		sortTag := fmt.Sprintf("Sort [s]: %s", sortLabel)
 		themeTag := fmt.Sprintf("Theme [t]: %s", m.Theme.Scheme.Name)
-		countTag := fmt.Sprintf("%d files", len(m.DisplayedFiles))
-		rightPart = fmt.Sprintf(" %s • %s • %s ", m.Theme.Muted.Render(sortTag), m.Theme.Muted.Render(themeTag), m.Theme.Cursor.Render(countTag))
+		rightPart = fmt.Sprintf(" %s • %s ", m.Theme.Muted.Render(sortTag), m.Theme.Muted.Render(themeTag))
 	}
 
 	leftLen := len(StripANSI(leftPart))
@@ -290,27 +283,11 @@ func (m BrowserModel) View() string {
 	if spacesLine0 < 1 {
 		spacesLine0 = 1
 	}
-	line0 := leftPart + strings.Repeat(" ", spacesLine0) + rightPart
-	line0Rendered := m.Theme.Base.Width(m.Width).MaxHeight(1).Render(line0)
+	headerLine := leftPart + strings.Repeat(" ", spacesLine0) + rightPart
+	headerRendered := m.Theme.Base.Width(m.Width).MaxHeight(1).Render(headerLine)
 
 	// ---------------------------------------------------------
-	// 2. COLUMN HEADER (Line 1)
-	// ---------------------------------------------------------
-	col1W := int(float64(m.Width) * 0.45)
-	if col1W < 24 {
-		col1W = 24
-	}
-	col3W := 14
-	col2W := m.Width - col1W - col3W
-	if col2W < 12 {
-		col2W = 12
-	}
-
-	colHeaderStr := fmt.Sprintf("   %-*s %-*s %*s", col1W-3, "FILE", col2W-1, "DIRECTORY", col3W-1, "UPDATED")
-	line1Rendered := m.Theme.TableHeader.Width(m.Width).MaxHeight(1).Render(colHeaderStr)
-
-	// ---------------------------------------------------------
-	// 3. MIDDLE BODY CONTAINER (Strictly bodyHeight lines)
+	// 2. VERTICAL CARD FEED BODY (Strictly bodyHeight lines)
 	// ---------------------------------------------------------
 	var bodyRows []string
 
@@ -321,12 +298,17 @@ func (m BrowserModel) View() string {
 		}
 		topPadding := bodyHeight / 2
 		for i := 0; i < topPadding; i++ {
-			bodyRows = append(bodyRows, "")
+			bodyRows = append(bodyRows, strings.Repeat(" ", m.Width))
 		}
 		centered := fmt.Sprintf("%*s", (m.Width+len(msg))/2, msg)
 		bodyRows = append(bodyRows, m.Theme.Muted.Render(centered))
 	} else {
-		endIdx := m.ScrollOffset + bodyHeight
+		visibleCards := bodyHeight / 3
+		if visibleCards < 1 {
+			visibleCards = 1
+		}
+
+		endIdx := m.ScrollOffset + visibleCards
 		if endIdx > len(m.DisplayedFiles) {
 			endIdx = len(m.DisplayedFiles)
 		}
@@ -343,23 +325,51 @@ func (m BrowserModel) View() string {
 			}
 			timeStr := formatRelativeTime(t)
 
-			fileName := truncateString(f.Name, col1W-4)
-			dirName := truncateString(f.Directory, col2W-2)
+			timeColW := len(timeStr) + 2
+			availNameW := m.Width - timeColW - 6
+			if availNameW < 12 {
+				availNameW = 12
+			}
+			fileName := truncateString(f.Name, availNameW)
+
+			dirDisplay := f.Directory
+			if dirDisplay == "" || dirDisplay == "." {
+				dirDisplay = "."
+			}
+			availDirW := m.Width - 6
+			if availDirW < 12 {
+				availDirW = 12
+			}
+			dirText := truncateString(dirDisplay, availDirW)
 
 			if isSelected {
-				selPrefix := " ▍ "
-				rawRow := fmt.Sprintf("%s%-*s %-*s %*s ", selPrefix, col1W-4, fileName, col2W-2, dirName, col3W-2, timeStr)
-				bodyRows = append(bodyRows, m.Theme.RowSelected.Render(padToWidth(rawRow, m.Width)))
-			} else {
-				prefix := "   "
-				filePart := fmt.Sprintf("%s%-*s", prefix, col1W-4, fileName)
-				dirPart := fmt.Sprintf(" %-*s", col2W-2, dirName)
-				datePart := fmt.Sprintf(" %*s ", col3W-2, timeStr)
+				// Line 1: Accent bar + Filename + Timestamp
+				line1Raw := fmt.Sprintf(" ▍ %-*s %*s ", availNameW, fileName, timeColW-2, timeStr)
+				line1Pad := padToWidth(line1Raw, m.Width)
+				bodyRows = append(bodyRows, m.Theme.RowSelected.Bold(true).Render(line1Pad))
 
-				fileRend := m.Theme.RowNormal.Render(filePart)
-				dirRend := m.Theme.ColDir.Render(dirPart)
-				dateRend := m.Theme.ColDate.Render(datePart)
-				bodyRows = append(bodyRows, padToWidth(fileRend+dirRend+dateRend, m.Width))
+				// Line 2: Accent bar + Muted Directory subtext
+				line2Raw := fmt.Sprintf(" ▍ %s", dirText)
+				line2Pad := padToWidth(line2Raw, m.Width)
+				bodyRows = append(bodyRows, m.Theme.RowSelected.Render(line2Pad))
+
+				// Line 3: Subtle separator
+				sep := "   " + strings.Repeat("─", m.Width-6)
+				bodyRows = append(bodyRows, m.Theme.Divider.Render(sep))
+			} else {
+				// Line 1: Normal Filename + Muted Timestamp
+				line1File := fmt.Sprintf("   %-*s", availNameW, fileName)
+				line1Date := fmt.Sprintf(" %*s ", timeColW-2, timeStr)
+				row1 := m.Theme.RowNormal.Render(line1File) + m.Theme.ColDate.Render(line1Date)
+				bodyRows = append(bodyRows, padToWidth(row1, m.Width))
+
+				// Line 2: Muted Directory subtext
+				line2Dir := fmt.Sprintf("   %s", dirText)
+				bodyRows = append(bodyRows, m.Theme.ColDir.Render(padToWidth(line2Dir, m.Width)))
+
+				// Line 3: Subtle separator
+				sep := "   " + strings.Repeat("─", m.Width-6)
+				bodyRows = append(bodyRows, m.Theme.Divider.Render(sep))
 			}
 		}
 	}
@@ -370,7 +380,7 @@ func (m BrowserModel) View() string {
 	}
 
 	// ---------------------------------------------------------
-	// 4. BOTTOM COMMAND BAR (Line m.Height - 1)
+	// 3. BOTTOM PINNED COMMAND BAR (Line m.Height - 1)
 	// ---------------------------------------------------------
 	kOpen := m.Theme.KeyBadge.Render("↵") + " open"
 	kFilter := m.Theme.KeyBadge.Render("/") + " filter"
@@ -400,7 +410,7 @@ func (m BrowserModel) View() string {
 	footerRendered := m.Theme.StatusBar.Width(m.Width).MaxHeight(1).Render(footerLine)
 
 	// Combine into exactly m.Height lines
-	allOutputLines := []string{line0Rendered, line1Rendered}
+	allOutputLines := []string{headerRendered}
 	allOutputLines = append(allOutputLines, bodyRows[:bodyHeight]...)
 	allOutputLines = append(allOutputLines, footerRendered)
 
