@@ -163,3 +163,48 @@ This is a test paragraph with ` + "`code`" + `.
 		t.Fatalf("expected raw line 1 in gutter: %s", resRawLN.Content)
 	}
 }
+
+func TestFullCanvasBackgroundPainting(t *testing.T) {
+	doc := "# Heading 1\nShort line.\n\nAnother paragraph.\n"
+	cfg := config.DefaultConfig()
+	paperLight := config.NewUITheme(cfg.GetScheme("PaperLight"))
+	expectedBgSeq := "\x1b[48;2;250;250;250m"
+
+	// 1. Formatted mode full canvas check
+	resFmt, err := Render(doc, RenderOptions{
+		Mode:        "formatted",
+		LineNumbers: true,
+		Width:       80,
+		Theme:       paperLight,
+	})
+	if err != nil {
+		t.Fatalf("render formatted failed: %v", err)
+	}
+	for i, line := range resFmt.Lines {
+		if !strings.HasPrefix(line, expectedBgSeq) {
+			t.Fatalf("line %d does not start with PaperLight bgSeq: %q", i, line)
+		}
+		if !strings.HasSuffix(line, "\x1b[0m") {
+			t.Fatalf("line %d does not end with \\x1b[0m: %q", i, line)
+		}
+	}
+
+	// 2. Raw mode full canvas check
+	resRaw, err := Render(doc, RenderOptions{
+		Mode:        "raw",
+		LineNumbers: true,
+		Width:       80,
+		Theme:       paperLight,
+	})
+	if err != nil {
+		t.Fatalf("render raw failed: %v", err)
+	}
+	for i, line := range resRaw.Lines {
+		if !strings.HasPrefix(line, expectedBgSeq) {
+			t.Fatalf("raw line %d does not start with PaperLight bgSeq: %q", i, line)
+		}
+		if !strings.HasSuffix(line, "\x1b[0m") {
+			t.Fatalf("raw line %d does not end with \\x1b[0m: %q", i, line)
+		}
+	}
+}

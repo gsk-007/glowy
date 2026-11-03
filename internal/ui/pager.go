@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
 	"github.com/glowy/cli/internal/config"
 	"github.com/glowy/cli/internal/render"
@@ -66,6 +67,7 @@ func NewPagerModel(filePath string, source string, theme *config.UITheme, mode s
 
 	vp := viewport.New(80, 24)
 	vp.YOffset = 0
+	vp.Style = lipgloss.NewStyle().Background(lipgloss.Color(theme.Scheme.Background))
 
 	var watcher *fsnotify.Watcher
 	if filePath != "" && filePath != "-" {
@@ -94,6 +96,8 @@ func NewPagerModel(filePath string, source string, theme *config.UITheme, mode s
 }
 
 func (m *PagerModel) reRender() error {
+	m.Viewport.Style = lipgloss.NewStyle().Background(lipgloss.Color(m.Theme.Scheme.Background))
+
 	opts := render.RenderOptions{
 		Mode:        m.Mode,
 		LineNumbers: m.LineNumbers,
@@ -138,7 +142,8 @@ func (m *PagerModel) applySearchHighlight() {
 
 	highlighted := make([]string, len(m.Rendered.Lines))
 	for i, line := range m.Rendered.Lines {
-		highlighted[i] = HighlightMatchesInLine(line, m.SearchQuery, m.Theme)
+		hl := HighlightMatchesInLine(line, m.SearchQuery, m.Theme)
+		highlighted[i] = render.ApplyLineBackground(hl, m.Width, m.Theme.Scheme.Background)
 	}
 
 	oldY := m.Viewport.YOffset
@@ -402,7 +407,21 @@ func (m PagerModel) View() string {
 	headerRendered := m.Theme.PagerHeader.Width(m.Width).MaxHeight(1).Render(headerLine)
 
 	// 2. Middle Viewport (strictly m.Height - 2 lines)
-	viewportView := m.Viewport.View()
+	vpHeight := m.Height - 2
+	if vpHeight < 1 {
+		vpHeight = 1
+	}
+	vpLines := strings.Split(m.Viewport.View(), "\n")
+	for i, l := range vpLines {
+		vpLines[i] = render.ApplyLineBackground(l, m.Width, m.Theme.Scheme.Background)
+	}
+	for len(vpLines) < vpHeight {
+		vpLines = append(vpLines, render.ApplyLineBackground("", m.Width, m.Theme.Scheme.Background))
+	}
+	if len(vpLines) > vpHeight {
+		vpLines = vpLines[:vpHeight]
+	}
+	viewportView := strings.Join(vpLines, "\n")
 
 	// 3. Bottom Status & Command Bar (1 line fixed)
 	hints := " ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • esc back • q quit "

@@ -216,11 +216,11 @@ func (m AppModel) View() string {
 	}
 
 	if m.ShowingHelp {
-		return Overlay(baseView, RenderHelpModal(m.Theme, m.Width), m.Width, m.Height)
+		return Overlay(baseView, RenderHelpModal(m.Theme, m.Width), m.Width, m.Height, m.Theme.Scheme.Background)
 	}
 
 	if m.ShowingTheme {
-		return Overlay(baseView, m.ThemeModal.Render(m.Theme, m.Width), m.Width, m.Height)
+		return Overlay(baseView, m.ThemeModal.Render(m.Theme, m.Width), m.Width, m.Height, m.Theme.Scheme.Background)
 	}
 
 	return baseView

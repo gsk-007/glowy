@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/glowy/cli/internal/config"
 	"github.com/glowy/cli/internal/discovery"
+	"github.com/glowy/cli/internal/render"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -298,7 +299,7 @@ func (m BrowserModel) View() string {
 		}
 		topPadding := bodyHeight / 2
 		for i := 0; i < topPadding; i++ {
-			bodyRows = append(bodyRows, strings.Repeat(" ", m.Width))
+			bodyRows = append(bodyRows, "")
 		}
 		centered := fmt.Sprintf("%*s", (m.Width+len(msg))/2, msg)
 		bodyRows = append(bodyRows, m.Theme.Muted.Render(centered))
@@ -361,11 +362,11 @@ func (m BrowserModel) View() string {
 				line1File := fmt.Sprintf("   %-*s", availNameW, fileName)
 				line1Date := fmt.Sprintf(" %*s ", timeColW-2, timeStr)
 				row1 := m.Theme.RowNormal.Render(line1File) + m.Theme.ColDate.Render(line1Date)
-				bodyRows = append(bodyRows, padToWidth(row1, m.Width))
+				bodyRows = append(bodyRows, row1)
 
 				// Line 2: Muted Directory subtext
 				line2Dir := fmt.Sprintf("   %s", dirText)
-				bodyRows = append(bodyRows, m.Theme.ColDir.Render(padToWidth(line2Dir, m.Width)))
+				bodyRows = append(bodyRows, m.Theme.ColDir.Render(line2Dir))
 
 				// Line 3: Subtle separator
 				sep := "   " + strings.Repeat("─", m.Width-6)
@@ -376,7 +377,10 @@ func (m BrowserModel) View() string {
 
 	// Pad middle body container strictly to bodyHeight lines
 	for len(bodyRows) < bodyHeight {
-		bodyRows = append(bodyRows, strings.Repeat(" ", m.Width))
+		bodyRows = append(bodyRows, "")
+	}
+	for i := range bodyRows {
+		bodyRows[i] = render.ApplyLineBackground(bodyRows[i], m.Width, m.Theme.Scheme.Background)
 	}
 
 	// ---------------------------------------------------------

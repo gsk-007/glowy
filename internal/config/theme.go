@@ -66,6 +66,21 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 	}
 
 	cfg := base
+	if s.Background != "" {
+		cfg.Document.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.Paragraph.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.Heading.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H1.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H2.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H3.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H4.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H5.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.H6.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.List.StyleBlock.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.Table.StyleBlock.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+		cfg.BlockQuote.StylePrimitive.BackgroundColor = stringPtr(s.Background)
+	}
+
 	if s.Foreground != "" {
 		cfg.Document.StylePrimitive.Color = stringPtr(s.Foreground)
 	}
@@ -122,7 +137,8 @@ func NewUITheme(s Scheme) *UITheme {
 			Background(bg),
 
 		Muted: lipgloss.NewStyle().
-			Foreground(muted),
+			Foreground(muted).
+			Background(bg),
 
 		Selected: lipgloss.NewStyle().
 			Foreground(cursor).
@@ -131,6 +147,7 @@ func NewUITheme(s Scheme) *UITheme {
 
 		FolderHeader: lipgloss.NewStyle().
 			Foreground(cursor).
+			Background(bg).
 			Bold(true),
 
 		Cursor: lipgloss.NewStyle().
@@ -151,10 +168,12 @@ func NewUITheme(s Scheme) *UITheme {
 
 		TabInactive: lipgloss.NewStyle().
 			Foreground(muted).
+			Background(bg).
 			Padding(0, 1),
 
 		TableHeader: lipgloss.NewStyle().
 			Foreground(muted).
+			Background(bg).
 			Bold(true),
 
 		RowSelected: lipgloss.NewStyle().
@@ -162,23 +181,28 @@ func NewUITheme(s Scheme) *UITheme {
 			Foreground(fg),
 
 		RowNormal: lipgloss.NewStyle().
-			Foreground(fg),
+			Foreground(fg).
+			Background(bg),
 
 		ColFileSel: lipgloss.NewStyle().
 			Foreground(cursor).
 			Bold(true),
 
 		ColDir: lipgloss.NewStyle().
-			Foreground(muted),
+			Foreground(muted).
+			Background(bg),
 
 		ColDate: lipgloss.NewStyle().
-			Foreground(muted),
+			Foreground(muted).
+			Background(bg),
 
 		TreeBranch: lipgloss.NewStyle().
-			Foreground(border),
+			Foreground(border).
+			Background(bg),
 
 		Divider: lipgloss.NewStyle().
-			Foreground(border),
+			Foreground(border).
+			Background(bg),
 
 		KeyBadge: lipgloss.NewStyle().
 			Foreground(cursor).
@@ -195,7 +219,8 @@ func NewUITheme(s Scheme) *UITheme {
 			Bold(true),
 
 		BrowserItem: lipgloss.NewStyle().
-			Foreground(fg),
+			Foreground(fg).
+			Background(bg),
 
 		BrowserMatch: lipgloss.NewStyle().
 			Foreground(shBg).
@@ -213,7 +238,8 @@ func NewUITheme(s Scheme) *UITheme {
 			Padding(0, 1),
 
 		PagerText: lipgloss.NewStyle().
-			Foreground(fg),
+			Foreground(fg).
+			Background(bg),
 
 		StatusBar: lipgloss.NewStyle().
 			Background(sbBg).
@@ -239,18 +265,22 @@ func NewUITheme(s Scheme) *UITheme {
 		FrontmatterBox: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(border).
+			Background(bg).
 			Padding(0, 1).
 			MarginBottom(1),
 
 		FrontmatterKey: lipgloss.NewStyle().
 			Foreground(muted).
+			Background(bg).
 			Bold(true),
 
 		FrontmatterVal: lipgloss.NewStyle().
-			Foreground(fg),
+			Foreground(fg).
+			Background(bg),
 
 		Gutter: lipgloss.NewStyle().
-			Foreground(muted),
+			Foreground(muted).
+			Background(bg),
 
 		SearchHighlight: lipgloss.NewStyle().
 			Background(shBg).

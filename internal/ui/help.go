@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/glowy/cli/internal/config"
+	"github.com/glowy/cli/internal/render"
 )
 
 // RenderHelpModal generates a bordered, formatted Help Menu modal.
@@ -65,7 +66,7 @@ func RenderHelpModal(theme *config.UITheme, width int) string {
 }
 
 // Overlay draws modal centered over baseView while strictly preserving line count.
-func Overlay(baseView, modalView string, width, height int) string {
+func Overlay(baseView, modalView string, width, height int, bgHex ...string) string {
 	baseLines := strings.Split(baseView, "\n")
 	modalLines := strings.Split(modalView, "\n")
 	modalHeight := len(modalLines)
@@ -81,6 +82,11 @@ func Overlay(baseView, modalView string, width, height int) string {
 	result := make([]string, len(baseLines))
 	copy(result, baseLines)
 
+	bg := ""
+	if len(bgHex) > 0 {
+		bg = bgHex[0]
+	}
+
 	for i, modalLine := range modalLines {
 		targetRow := topRow + i
 		if targetRow >= len(result) {
@@ -95,7 +101,12 @@ func Overlay(baseView, modalView string, width, height int) string {
 		if rightPad < 0 {
 			rightPad = 0
 		}
-		result[targetRow] = strings.Repeat(" ", leftPad) + modalLine + strings.Repeat(" ", rightPad)
+
+		line := strings.Repeat(" ", leftPad) + modalLine + strings.Repeat(" ", rightPad)
+		if bg != "" {
+			line = render.ApplyLineBackground(line, width, bg)
+		}
+		result[targetRow] = line
 	}
 
 	return strings.Join(result, "\n")

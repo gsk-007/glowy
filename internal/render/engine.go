@@ -137,6 +137,14 @@ func renderFormatted(body string, fm *Frontmatter, fmLinesCount, totalRawLines, 
 		allLines = ComposeFormattedGutter(allLines, fmLinesCount, fmRenderedLinesCount, astBlockLines, totalRawLines, opts.Theme)
 	}
 
+	termWidth := opts.Width
+	if termWidth <= 0 {
+		termWidth = DetectTerminalWidth()
+	}
+	for i, l := range allLines {
+		allLines[i] = ApplyLineBackground(l, termWidth, opts.Theme.Scheme.Background)
+	}
+
 	joined := strings.Join(allLines, "\n")
 	return &RenderResult{
 		Content:          joined,
@@ -177,6 +185,14 @@ func renderRaw(source string, rawLines []string, totalRawLines int, opts RenderO
 		highlightedLines = ComposeRawGutter(highlightedLines, opts.Theme)
 	}
 
+	termWidth := opts.Width
+	if termWidth <= 0 {
+		termWidth = DetectTerminalWidth()
+	}
+	for i, l := range highlightedLines {
+		highlightedLines[i] = ApplyLineBackground(l, termWidth, opts.Theme.Scheme.Background)
+	}
+
 	joined := strings.Join(highlightedLines, "\n")
 	return &RenderResult{
 		Content:          joined,
@@ -188,8 +204,8 @@ func renderRaw(source string, rawLines []string, totalRawLines int, opts RenderO
 
 func buildChromaStyle(s config.Scheme) *chroma.Style {
 	builder := chroma.NewStyleBuilder("glowy-" + s.Name)
+	builder.Add(chroma.Background, s.Foreground+" bg:"+s.Background)
 	builder.Add(chroma.Text, s.Foreground)
-	builder.Add(chroma.Background, s.Background)
 	builder.Add(chroma.Comment, s.Muted+" italic")
 	builder.Add(chroma.Keyword, s.CursorAccent+" bold")
 	builder.Add(chroma.GenericHeading, s.Markdown.H1+" bold")
@@ -207,8 +223,9 @@ func buildChromaStyle(s config.Scheme) *chroma.Style {
 	style, err := builder.Build()
 	if err != nil {
 		return chroma.MustNewStyle("fallback", chroma.StyleEntries{
-			chroma.Comment: s.Muted,
-			chroma.Keyword: s.CursorAccent,
+			chroma.Background: s.Foreground + " bg:" + s.Background,
+			chroma.Comment:    s.Muted,
+			chroma.Keyword:    s.CursorAccent,
 		})
 	}
 	return style
