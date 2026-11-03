@@ -1,0 +1,53 @@
+{
+  "defaultScheme": "SlateDark",
+  "lineNumbers": false,
+  "defaultMode": "formatted",
+  "sortBy": "modified",
+  "wordWrap": "dynamic",
+  "schemes": [
+    {
+      "name": "SlateDark",
+      "background": "#121417",
+      "foreground": "#E2E8F0",
+      "cursorAccent": "#2E8B57",
+      "selectionBackground": "#264F78",
+      "muted": "#64748B",
+      "border": "#1E293B",
+      "statusBarBg": "#0F1115",
+      "statusBarFg": "#94A3B8",
+      "searchHighlightBg": "#EAB308",
+      "searchHighlightFg": "#000000",
+      "markdown": {
+        "h1": "#38BDF8",
+        "h2": "#34D399",
+        "h3": "#A78BFA",
+        "codeInlineFg": "#F472B6",
+        "codeBlockBg": "#1A1D24",
+        "quoteFg": "#94A3B8",
+        "linkFg": "#60A5FA"
+      }
+    },
+    {
+      "name": "PaperLight",
+      "background": "#FAFAFA",
+      "foreground": "#1E293B",
+      "cursorAccent": "#059669",
+      "selectionBackground": "#BFDBFE",
+      "muted": "#64748B",
+      "border": "#E2E8F0",
+      "statusBarBg": "#F1F5F9",
+      "statusBarFg": "#475569",
+      "searchHighlightBg": "#FDE047",
+      "searchHighlightFg": "#000000",
+      "markdown": {
+        "h1": "#0284C7",
+        "h2": "#059669",
+        "h3": "#7C3AED",
+        "codeInlineFg": "#DB2777",
+        "codeBlockBg": "#F1F5F9",
+        "quoteFg": "#64748B",
+        "linkFg": "#2563EB"
+      }
+    }
+  ]
+}
