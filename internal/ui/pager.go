@@ -241,10 +241,6 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.MouseMsg:
-		m.Viewport, cmd = m.Viewport.Update(msg)
-		return m, cmd
-
 	case tea.KeyMsg:
 		if m.Searching {
 			switch msg.String() {
@@ -409,7 +405,7 @@ func (m PagerModel) View() string {
 	viewportView := m.Viewport.View()
 
 	// 3. Bottom Status & Command Bar (1 line fixed)
-	hints := " ↑/↓ scroll • / search • r raw • l lines • esc back • q quit "
+	hints := " ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • esc back • q quit "
 	hintRendered := m.Theme.StatusBar.Render(hints)
 
 	scrollStatus := " TOP "

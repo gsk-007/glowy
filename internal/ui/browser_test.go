@@ -16,7 +16,7 @@ func TestBrowserModelNavigationAndFilter(t *testing.T) {
 	now := time.Now()
 	files := []discovery.MarkdownFile{
 		{Name: "zeta.md", RelativePath: "zeta.md", ModifiedAt: now.Add(-10 * time.Minute)},
-		{Name: "alpha.md", RelativePath: "docs/alpha.md", ModifiedAt: now},
+		{Name: "alpha.md", RelativePath: "docs/alpha.md", Directory: "docs", ModifiedAt: now},
 		{Name: "beta.md", RelativePath: "beta.md", ModifiedAt: now.Add(-5 * time.Minute)},
 	}
 
@@ -36,16 +36,17 @@ func TestBrowserModelNavigationAndFilter(t *testing.T) {
 		t.Fatalf("expected cursor 1, got %d", model.Cursor)
 	}
 
-	// Filter
+	// Filter by directory path (e.g. "docs")
 	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	if !model.Filtering {
 		t.Fatal("expected filtering mode active")
 	}
 
-	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
-	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
-	if len(model.DisplayedFiles) != 1 || model.DisplayedFiles[0].Name != "zeta.md" {
-		t.Fatalf("expected 1 filtered file 'zeta.md', got %+v", model.DisplayedFiles)
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	if len(model.DisplayedFiles) != 1 || model.DisplayedFiles[0].Name != "alpha.md" {
+		t.Fatalf("expected 1 filtered file 'alpha.md' by path 'doc', got %+v", model.DisplayedFiles)
 	}
 
 	// Exit filter
@@ -112,5 +113,31 @@ func TestPagerModelStartsAtTop(t *testing.T) {
 	lines := strings.Split(view, "\n")
 	if len(lines) != 24 {
 		t.Fatalf("expected exactly 24 lines in pager view, got %d", len(lines))
+	}
+}
+
+func TestHelpModalAndThemeModalOverlay(t *testing.T) {
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	// Verify Help Modal renders cleanly
+	helpView := RenderHelpModal(theme, 80)
+	if !strings.Contains(helpView, "KEYBOARD SHORTCUTS") {
+		t.Fatalf("expected Help modal to contain title, got: %s", helpView)
+	}
+
+	// Verify Theme Modal renders cleanly
+	themeModal := NewThemeModal(cfg.Schemes, "SlateDark")
+	modalView := themeModal.Render(theme, 80)
+	if !strings.Contains(modalView, "COLOR SCHEMES") || !strings.Contains(modalView, "SlateDark") {
+		t.Fatalf("expected Theme modal to contain SlateDark, got: %s", modalView)
+	}
+
+	// Verify Overlay preserves height
+	base := strings.Repeat("line\n", 23) + "line"
+	overlaid := Overlay(base, modalView, 80, 24)
+	overlaidLines := strings.Split(overlaid, "\n")
+	if len(overlaidLines) != 24 {
+		t.Fatalf("expected exactly 24 lines after overlay, got %d", len(overlaidLines))
 	}
 }

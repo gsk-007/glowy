@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/glowy/cli/internal/config"
 	"github.com/glowy/cli/internal/discovery"
 	"github.com/glowy/cli/internal/render"
@@ -19,6 +21,7 @@ var (
 	flagLineNumbers bool
 	flagStyle       string
 	flagWidth       int
+	flagThemes      bool
 )
 
 func isStdinPiped() bool {
@@ -45,13 +48,70 @@ func main() {
 	rootCmd.Flags().BoolVarP(&flagLineNumbers, "line-numbers", "l", false, "Display raw file line numbers in the left gutter")
 	rootCmd.Flags().StringVarP(&flagStyle, "style", "s", "", "Override active color scheme (e.g. SlateDark, PaperLight)")
 	rootCmd.Flags().IntVarP(&flagWidth, "width", "w", 0, "Override dynamic terminal width wrapping")
+	rootCmd.Flags().BoolVar(&flagThemes, "themes", false, "List available color schemes with color swatches")
+
+	themesCmd := &cobra.Command{
+		Use:   "themes",
+		Short: "List all available color schemes and their color previews",
+		RunE:  listThemes,
+	}
+	rootCmd.AddCommand(themesCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
+func listThemes(cmd *cobra.Command, args []string) error {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		cfg = config.DefaultConfig()
+	}
+
+	configPath, _ := config.GetConfigPath()
+
+	fmt.Println()
+	fmt.Println("Available Color Schemes (glowy):")
+	if configPath != "" {
+		fmt.Printf("Config path: %s\n\n", configPath)
+	}
+
+	for _, s := range cfg.Schemes {
+		isActive := strings.EqualFold(s.Name, cfg.DefaultScheme)
+		prefix := "  "
+		activeLabel := ""
+		if isActive {
+			prefix = "* "
+			activeLabel = " (active)"
+		}
+
+		bgSwatch := lipgloss.NewStyle().Foreground(lipgloss.Color(s.Background)).Render("██")
+		fgSwatch := lipgloss.NewStyle().Foreground(lipgloss.Color(s.Foreground)).Render("██")
+		cursorSwatch := lipgloss.NewStyle().Foreground(lipgloss.Color(s.CursorAccent)).Render("██")
+		h1Swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(s.Markdown.H1)).Render("██")
+		codeSwatch := lipgloss.NewStyle().Foreground(lipgloss.Color(s.Markdown.CodeInlineFg)).Render("██")
+
+		fmt.Printf("%s%-14s%s\n", prefix, s.Name, activeLabel)
+		fmt.Printf("    Swatches:  Bg %s %s   Fg %s %s   Accent %s %s   H1 %s %s   Code %s %s\n\n",
+			bgSwatch, s.Background,
+			fgSwatch, s.Foreground,
+			cursorSwatch, s.CursorAccent,
+			h1Swatch, s.Markdown.H1,
+			codeSwatch, s.Markdown.CodeInlineFg,
+		)
+	}
+
+	fmt.Println("Tip: Use 'glowy -s <scheme>' to test a theme, or press 't' inside glowy to switch live.")
+	fmt.Println("You can add custom schemes by editing settings.json.")
+	fmt.Println()
+	return nil
+}
+
 func runApp(cmd *cobra.Command, args []string) error {
+	if flagThemes {
+		return listThemes(cmd, args)
+	}
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		cfg = config.DefaultConfig()
@@ -121,7 +181,8 @@ func runApp(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+			// Only WithAltScreen (No mouse capture -> enables native text selection)
+			p := tea.NewProgram(app, tea.WithAltScreen())
 			_, err = p.Run()
 			return err
 		}
@@ -154,9 +215,9 @@ func runApp(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		// Interactive pager on stdin
+		// Interactive pager on stdin (Only WithAltScreen, no mouse capture)
 		var teaOptions []tea.ProgramOption
-		teaOptions = append(teaOptions, tea.WithAltScreen(), tea.WithMouseCellMotion())
+		teaOptions = append(teaOptions, tea.WithAltScreen())
 
 		// On Windows/Unix, attach console input when stdin is piped
 		if conIn, err := os.Open("CONIN$"); err == nil {
@@ -192,7 +253,8 @@ func openBrowser(dir string, cfg *config.Config, theme *config.UITheme, mode str
 		return err
 	}
 
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	// Only WithAltScreen (No mouse capture -> enables native text selection)
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err = p.Run()
 	return err
 }

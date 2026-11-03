@@ -15,7 +15,8 @@ const (
 	StatePager
 )
 
-// AppModel coordinates transitions between the File Browser and the Document Pager.
+// AppModel coordinates transitions between the File Browser and Document Pager,
+// and manages global overlays (Help Menu and Theme Switcher).
 type AppModel struct {
 	State        AppState
 	Browser      BrowserModel
@@ -27,6 +28,10 @@ type AppModel struct {
 	DirectPager  bool
 	LineNumbers  bool
 	DefaultMode  string
+
+	ShowingHelp  bool
+	ShowingTheme bool
+	ThemeModal   ThemeModal
 }
 
 // NewAppModel creates a top-level application model.
@@ -54,6 +59,15 @@ func NewAppModel(files []discovery.MarkdownFile, initialFile *discovery.Markdown
 	return app, nil
 }
 
+func (m *AppModel) applyTheme(scheme config.Scheme) {
+	m.Theme = config.NewUITheme(scheme)
+	m.Browser.Theme = m.Theme
+	if m.Pager != nil {
+		m.Pager.Theme = m.Theme
+		_ = m.Pager.reRender()
+	}
+}
+
 func (m AppModel) Init() tea.Cmd {
 	if m.State == StatePager && m.Pager != nil {
 		return m.Pager.Init()
@@ -71,8 +85,62 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.Browser, _ = m.Browser.Update(msg)
 		return m, nil
+
+	case tea.KeyMsg:
+		// 1. Help Modal Active
+		if m.ShowingHelp {
+			switch msg.String() {
+			case "?", "esc", "enter", "q", "backspace":
+				m.ShowingHelp = false
+				return m, nil
+			default:
+				return m, nil
+			}
+		}
+
+		// 2. Theme Modal Active
+		if m.ShowingTheme {
+			switch msg.String() {
+			case "up", "k":
+				scheme := m.ThemeModal.MoveCursor(-1)
+				m.applyTheme(scheme)
+				return m, nil
+			case "down", "j":
+				scheme := m.ThemeModal.MoveCursor(1)
+				m.applyTheme(scheme)
+				return m, nil
+			case "enter":
+				selected := m.ThemeModal.SelectedScheme()
+				m.applyTheme(selected)
+				_ = config.SaveDefaultScheme(selected.Name)
+				m.ShowingTheme = false
+				return m, nil
+			case "esc", "q":
+				orig := m.Config.GetScheme(m.ThemeModal.OriginalScheme)
+				m.applyTheme(orig)
+				m.ShowingTheme = false
+				return m, nil
+			default:
+				return m, nil
+			}
+		}
+
+		// 3. Global Shortcuts (when text inputs are not typing)
+		isTyping := (m.State == StateBrowser && m.Browser.Filtering) || (m.State == StatePager && m.Pager.Searching)
+		if !isTyping {
+			switch msg.String() {
+			case "?":
+				m.ShowingHelp = true
+				return m, nil
+			case "t":
+				m.ShowingTheme = true
+				m.ThemeModal = NewThemeModal(m.Config.Schemes, m.Theme.Scheme.Name)
+				return m, nil
+			}
+		}
 	}
 
+	// 4. Delegate to Active View
 	if m.State == StateBrowser {
 		var cmd tea.Cmd
 		m.Browser, cmd = m.Browser.Update(msg)
@@ -89,16 +157,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			vpHeight := m.Height - 2
+			if vpHeight < 1 {
+				vpHeight = 1
+			}
+
 			pager, err := NewPagerModel(filePath, string(data), m.Theme, m.DefaultMode, m.LineNumbers, false)
 			if err != nil {
 				m.Browser.SelectedFile = nil
 				return m, nil
 			}
 
-			vpHeight := m.Height - 2
-			if vpHeight < 1 {
-				vpHeight = 1
-			}
 			pager.Width = m.Width
 			pager.Height = m.Height
 			pager.Viewport.Width = m.Width
@@ -139,8 +208,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) View() string {
+	var baseView string
 	if m.State == StatePager && m.Pager != nil {
-		return m.Pager.View()
+		baseView = m.Pager.View()
+	} else {
+		baseView = m.Browser.View()
 	}
-	return m.Browser.View()
+
+	if m.ShowingHelp {
+		return Overlay(baseView, RenderHelpModal(m.Theme, m.Width), m.Width, m.Height)
+	}
+
+	if m.ShowingTheme {
+		return Overlay(baseView, m.ThemeModal.Render(m.Theme, m.Width), m.Width, m.Height)
+	}
+
+	return baseView
 }

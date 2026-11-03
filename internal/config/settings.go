@@ -199,3 +199,24 @@ func (c *Config) GetScheme(name string) Scheme {
 
 	return DefaultSlateDark()
 }
+
+// SaveDefaultScheme updates the default scheme in settings.json and persists it to disk.
+func SaveDefaultScheme(schemeName string) error {
+	path, err := GetConfigPath()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		cfg = DefaultConfig()
+	}
+	cfg.DefaultScheme = schemeName
+
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
