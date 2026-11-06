@@ -51,23 +51,41 @@ func FindMatches(lines []string, query string) []SearchMatch {
 	return matches
 }
 
-// HighlightMatchesInLine highlights all case-insensitive occurrences of query in a single ANSI line.
+// HighlightMatchesInLine highlights all case-insensitive occurrences of query in a single ANSI line,
+// including matches that span across multiple ANSI style boundaries.
 func HighlightMatchesInLine(line string, query string, theme *config.UITheme) string {
 	q := strings.TrimSpace(query)
 	if q == "" {
 		return line
 	}
 
-	// Find matches in plain text
 	plain := ansiPattern.ReplaceAllString(line, "")
 	lowerPlain := strings.ToLower(plain)
 	lowerQ := strings.ToLower(q)
 
-	if !strings.Contains(lowerPlain, lowerQ) {
+	if len(lowerPlain) != len(plain) {
+		// Fallback if Unicode case-folding changes byte length
+		if !strings.Contains(lowerPlain, lowerQ) {
+			return line
+		}
+	}
+
+	var spans [][2]int
+	start := 0
+	for {
+		idx := strings.Index(lowerPlain[start:], lowerQ)
+		if idx == -1 {
+			break
+		}
+		mStart := start + idx
+		mEnd := mStart + len(lowerQ)
+		spans = append(spans, [2]int{mStart, mEnd})
+		start = mEnd
+	}
+	if len(spans) == 0 {
 		return line
 	}
 
-	// Map each byte in line to plain text position, or identify ANSI sequences
 	type token struct {
 		isANSI bool
 		text   string
@@ -87,42 +105,70 @@ func HighlightMatchesInLine(line string, query string, theme *config.UITheme) st
 		tokens = append(tokens, token{isANSI: false, text: line[last:]})
 	}
 
-	// For non-ANSI tokens, find and replace matches
-	// Track the active ANSI formatting so surrounding text retains its color after match reset
 	var result strings.Builder
-	currentANSI := ""
+	var currentANSI strings.Builder
+	plainPos := 0
+	spanIdx := 0
 
 	for _, tok := range tokens {
 		if tok.isANSI {
-			if tok.text == "\x1b[0m" {
-				currentANSI = ""
+			if tok.text == "\x1b[0m" || tok.text == "\x1b[m" {
+				currentANSI.Reset()
 			} else {
-				currentANSI = tok.text
+				currentANSI.WriteString(tok.text)
 			}
 			result.WriteString(tok.text)
 			continue
 		}
 
-		tokLower := strings.ToLower(tok.text)
-		tokIdx := 0
-		for {
-			m := strings.Index(tokLower[tokIdx:], lowerQ)
-			if m == -1 {
-				result.WriteString(tok.text[tokIdx:])
+		tokLen := len(tok.text)
+		tokStartPlain := plainPos
+		tokEndPlain := plainPos + tokLen
+		plainPos = tokEndPlain
+
+		if len(tok.text) == 0 {
+			continue
+		}
+
+		localIdx := 0
+		for localIdx < tokLen {
+			for spanIdx < len(spans) && spans[spanIdx][1] <= tokStartPlain+localIdx {
+				spanIdx++
+			}
+			if spanIdx >= len(spans) {
+				result.WriteString(tok.text[localIdx:])
 				break
 			}
 
-			startMatch := tokIdx + m
-			endMatch := startMatch + len(lowerQ)
+			mStart := spans[spanIdx][0]
+			mEnd := spans[spanIdx][1]
 
-			result.WriteString(tok.text[tokIdx:startMatch])
-			matched := tok.text[startMatch:endMatch]
-			result.WriteString(theme.SearchHighlight.Render(matched))
-			if currentANSI != "" {
-				result.WriteString(currentANSI)
+			if mStart >= tokEndPlain {
+				result.WriteString(tok.text[localIdx:])
+				break
 			}
 
-			tokIdx = endMatch
+			// Emit unhighlighted prefix within this token before match starts
+			if mStart > tokStartPlain+localIdx {
+				prefixEnd := mStart - tokStartPlain
+				result.WriteString(tok.text[localIdx:prefixEnd])
+				localIdx = prefixEnd
+			}
+
+			// Emit highlighted portion within this token
+			hlEndPlain := mEnd
+			if hlEndPlain > tokEndPlain {
+				hlEndPlain = tokEndPlain
+			}
+			hlEndLocal := hlEndPlain - tokStartPlain
+			if hlEndLocal > localIdx {
+				matched := tok.text[localIdx:hlEndLocal]
+				result.WriteString(theme.SearchHighlight.Render(matched))
+				if currentANSI.Len() > 0 {
+					result.WriteString(currentANSI.String())
+				}
+				localIdx = hlEndLocal
+			}
 		}
 	}
 

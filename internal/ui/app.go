@@ -25,6 +25,7 @@ type AppModel struct {
 	Config       *config.Config
 	Width        int
 	Height       int
+	WrapWidth    int
 	DirectPager  bool
 	LineNumbers  bool
 	DefaultMode  string
@@ -35,10 +36,18 @@ type AppModel struct {
 }
 
 // NewAppModel creates a top-level application model.
-func NewAppModel(files []discovery.MarkdownFile, initialFile *discovery.MarkdownFile, initialSource string, directPager bool, cfg *config.Config, theme *config.UITheme, mode string, lineNumbers bool) (AppModel, error) {
+func NewAppModel(files []discovery.MarkdownFile, initialFile *discovery.MarkdownFile, initialSource string, directPager bool, cfg *config.Config, theme *config.UITheme, mode string, lineNumbers bool, wrapWidth ...int) (AppModel, error) {
+	resolvedWrap := 0
+	if len(wrapWidth) > 0 && wrapWidth[0] > 0 {
+		resolvedWrap = wrapWidth[0]
+	} else if cfg != nil {
+		resolvedWrap = cfg.ResolveWrapWidth(0)
+	}
+
 	app := AppModel{
 		Theme:       theme,
 		Config:      cfg,
+		WrapWidth:   resolvedWrap,
 		DirectPager: directPager,
 		LineNumbers: lineNumbers,
 		DefaultMode: mode,
@@ -50,6 +59,7 @@ func NewAppModel(files []discovery.MarkdownFile, initialFile *discovery.Markdown
 		if err != nil {
 			return app, err
 		}
+		pager.WrapWidth = resolvedWrap
 		app.Pager = &pager
 	} else {
 		app.State = StateBrowser
@@ -90,6 +100,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 1. Help Modal Active
 		if m.ShowingHelp {
 			switch msg.String() {
+			case "ctrl+c":
+				if m.Pager != nil && m.Pager.Watcher != nil {
+					_ = m.Pager.Watcher.Close()
+					m.Pager.Watcher = nil
+				}
+				return m, tea.Quit
 			case "?", "esc", "enter", "q", "backspace":
 				m.ShowingHelp = false
 				return m, nil
@@ -101,6 +117,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// 2. Theme Modal Active
 		if m.ShowingTheme {
 			switch msg.String() {
+			case "ctrl+c":
+				if m.Pager != nil && m.Pager.Watcher != nil {
+					_ = m.Pager.Watcher.Close()
+					m.Pager.Watcher = nil
+				}
+				return m, tea.Quit
 			case "up", "k":
 				scheme := m.ThemeModal.MoveCursor(-1)
 				m.applyTheme(scheme)
@@ -115,7 +137,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_ = config.SaveDefaultScheme(selected.Name)
 				m.ShowingTheme = false
 				return m, nil
-			case "esc", "q":
+			case "esc", "q", "backspace", "t":
 				orig := m.Config.GetScheme(m.ThemeModal.OriginalScheme)
 				m.applyTheme(orig)
 				m.ShowingTheme = false
@@ -126,7 +148,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// 3. Global Shortcuts (when text inputs are not typing)
-		isTyping := (m.State == StateBrowser && m.Browser.Filtering) || (m.State == StatePager && m.Pager.Searching)
+		isTyping := (m.State == StateBrowser && m.Browser.Filtering) || (m.State == StatePager && m.Pager != nil && m.Pager.Searching)
 		if !isTyping {
 			switch msg.String() {
 			case "?":
@@ -168,6 +190,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			pager.WrapWidth = m.WrapWidth
 			pager.Width = m.Width
 			pager.Height = m.Height
 			pager.Viewport.Width = m.Width

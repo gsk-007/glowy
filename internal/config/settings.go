@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -198,6 +199,21 @@ func (c *Config) GetScheme(name string) Scheme {
 	}
 
 	return DefaultSlateDark()
+}
+
+// ResolveWrapWidth returns flagWidth if > 0, or a numeric WordWrap from settings.json if configured, else 0 (dynamic).
+func (c *Config) ResolveWrapWidth(flagWidth int) int {
+	if flagWidth > 0 {
+		return flagWidth
+	}
+	if c == nil {
+		return 0
+	}
+	w, err := strconv.Atoi(strings.TrimSpace(c.WordWrap))
+	if err == nil && w > 0 {
+		return w
+	}
+	return 0
 }
 
 // SaveDefaultScheme updates the default scheme in settings.json and persists it to disk.

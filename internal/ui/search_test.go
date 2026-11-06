@@ -68,4 +68,16 @@ func TestSearchHighlightAnsiEscapeSafety(t *testing.T) {
 	if !strings.Contains(highlightedBlue, "\x1b[38;2;56;189;248m text") {
 		t.Fatalf("expected active ANSI color to be preserved for subsequent text: %q", highlightedBlue)
 	}
+
+	// Verify match spanning across ANSI token boundary is highlighted
+	crossLine := "\x1b[38;2;244;114;182mglowy\x1b[0m is fast"
+	matchesCross := FindMatches([]string{crossLine}, "glowy is")
+	if len(matchesCross) != 1 {
+		t.Fatalf("expected 1 cross-ANSI match, got %d", len(matchesCross))
+	}
+	highlightedCross := HighlightMatchesInLine(crossLine, "glowy is", theme)
+	if highlightedCross == crossLine {
+		t.Fatalf("expected cross-ANSI match to be highlighted, got unchanged: %q", highlightedCross)
+	}
 }
+

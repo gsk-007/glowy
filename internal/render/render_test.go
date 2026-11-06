@@ -1,9 +1,11 @@
 package render
 
 import (
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/glowy/cli/internal/config"
 )
 
@@ -208,3 +210,128 @@ func TestFullCanvasBackgroundPainting(t *testing.T) {
 		}
 	}
 }
+
+func TestLineWidthsNeverExceedTermWidth(t *testing.T) {
+	data, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	for _, mode := range []string{"formatted", "raw"} {
+		for _, ln := range []bool{false, true} {
+			for width := 40; width <= 120; width += 20 {
+				res, err := Render(string(data), RenderOptions{
+					Mode:        mode,
+					LineNumbers: ln,
+					Width:       width,
+					Theme:       theme,
+				})
+				if err != nil {
+					t.Fatalf("mode=%s ln=%v width=%d failed: %v", mode, ln, width, err)
+				}
+				for i, l := range res.Lines {
+					w := lipgloss.Width(l)
+					if w > width {
+						t.Errorf("mode=%s ln=%v width=%d line %d width %d > %d: %q", mode, ln, width, i, w, width, l)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestRenderPRD(t *testing.T) {
+	data, err := os.ReadFile("../../PRD.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	for _, mode := range []string{"formatted", "raw"} {
+		for _, ln := range []bool{false, true} {
+			for _, width := range []int{60, 80, 100, 120} {
+				res, err := Render(string(data), RenderOptions{
+					Mode:        mode,
+					LineNumbers: ln,
+					Width:       width,
+					Theme:       theme,
+				})
+				if err != nil {
+					t.Fatalf("mode=%s ln=%v width=%d failed: %v", mode, ln, width, err)
+				}
+				for i, l := range res.Lines {
+					w := lipgloss.Width(l)
+					if w > width {
+						t.Errorf("PRD mode=%s ln=%v width=%d line %d width %d > %d: %q", mode, ln, width, i, w, width, l)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestTableWrappingPreservesAllContent(t *testing.T) {
+	data, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	res, err := Render(string(data), RenderOptions{
+		Mode:        "formatted",
+		LineNumbers: true,
+		Width:       80,
+		Theme:       theme,
+	})
+	if err != nil {
+		t.Fatalf("render README failed: %v", err)
+	}
+
+	plain := StripANSI(res.Content)
+
+	// Verify wrapped table cells on the right column are completely preserved
+	expectedPhrases := []string{
+		"interactive TUI",
+		"pager.",
+		"formatted output.",
+		"filenames and directory paths",
+		"Created ↓",
+		"Syntax-Highlighted Raw Markdown",
+		"231 │",
+	}
+	for _, phrase := range expectedPhrases {
+		if !strings.Contains(plain, phrase) {
+			t.Errorf("expected rendered README to contain wrapped phrase %q, but it was missing", phrase)
+		}
+	}
+}
+
+func TestLongFrontmatterValueWrapsWithIntactBorders(t *testing.T) {
+	doc := "---\ntitle: Very Long Frontmatter Value That Should Wrap Cleanly Inside The Rounded Box Without Clipping Borders\n---\n\n# Body\n"
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	res, err := Render(doc, RenderOptions{
+		Mode:        "formatted",
+		LineNumbers: false,
+		Width:       50,
+		Theme:       theme,
+	})
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	plain := StripANSI(res.Content)
+	if !strings.Contains(plain, "Without") || !strings.Contains(plain, "Borders") {
+		t.Fatalf("expected long frontmatter value to wrap without losing trailing words, got:\n%s", plain)
+	}
+	for i, l := range res.Lines {
+		if lipgloss.Width(l) > 50 {
+			t.Errorf("line %d width %d > 50: %q", i, lipgloss.Width(l), l)
+		}
+	}
+}
+

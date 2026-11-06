@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/glowy/cli/internal/config"
 	"github.com/glowy/cli/internal/discovery"
 	"github.com/glowy/cli/internal/render"
@@ -214,6 +215,9 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			if m.Cursor >= len(m.DisplayedFiles) {
 				m.Cursor = len(m.DisplayedFiles) - 1
 			}
+			if m.Cursor < 0 {
+				m.Cursor = 0
+			}
 			m.adjustScroll()
 
 		case "home", "g":
@@ -227,7 +231,7 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			}
 
 		case "enter":
-			if len(m.DisplayedFiles) > 0 && m.Cursor < len(m.DisplayedFiles) {
+			if len(m.DisplayedFiles) > 0 && m.Cursor >= 0 && m.Cursor < len(m.DisplayedFiles) {
 				selected := m.DisplayedFiles[m.Cursor]
 				m.SelectedFile = &selected
 				return m, nil
@@ -278,8 +282,13 @@ func (m BrowserModel) View() string {
 		rightPart = fmt.Sprintf(" %s • %s ", m.Theme.Muted.Render(sortTag), m.Theme.Muted.Render(themeTag))
 	}
 
-	leftLen := len(StripANSI(leftPart))
-	rightLen := len(StripANSI(rightPart))
+	leftLen := lipgloss.Width(leftPart)
+	rightLen := lipgloss.Width(rightPart)
+	if leftLen+rightLen+1 > m.Width {
+		// Shorten leftPart if terminal is narrow or filter bar is wide
+		leftPart = badge
+		leftLen = lipgloss.Width(leftPart)
+	}
 	spacesLine0 := m.Width - leftLen - rightLen
 	if spacesLine0 < 1 {
 		spacesLine0 = 1
@@ -297,11 +306,18 @@ func (m BrowserModel) View() string {
 		if m.FilterInput.Value() != "" {
 			msg = fmt.Sprintf("No markdown files match filter %q", m.FilterInput.Value())
 		}
+		if len(msg) > m.Width-2 && m.Width > 6 {
+			msg = truncateString(msg, m.Width-2)
+		}
 		topPadding := bodyHeight / 2
 		for i := 0; i < topPadding; i++ {
 			bodyRows = append(bodyRows, "")
 		}
-		centered := fmt.Sprintf("%*s", (m.Width+len(msg))/2, msg)
+		padLeft := (m.Width - lipgloss.Width(msg)) / 2
+		if padLeft < 0 {
+			padLeft = 0
+		}
+		centered := strings.Repeat(" ", padLeft) + msg
 		bodyRows = append(bodyRows, m.Theme.Muted.Render(centered))
 	} else {
 		visibleCards := bodyHeight / 3
@@ -312,6 +328,11 @@ func (m BrowserModel) View() string {
 		endIdx := m.ScrollOffset + visibleCards
 		if endIdx > len(m.DisplayedFiles) {
 			endIdx = len(m.DisplayedFiles)
+		}
+
+		sepLen := m.Width - 6
+		if sepLen < 1 {
+			sepLen = 1
 		}
 
 		for i := m.ScrollOffset; i < endIdx; i++ {
@@ -326,10 +347,10 @@ func (m BrowserModel) View() string {
 			}
 			timeStr := formatRelativeTime(t)
 
-			timeColW := len(timeStr) + 2
+			timeColW := lipgloss.Width(timeStr) + 2
 			availNameW := m.Width - timeColW - 6
-			if availNameW < 12 {
-				availNameW = 12
+			if availNameW < 4 {
+				availNameW = 4
 			}
 			fileName := truncateString(f.Name, availNameW)
 
@@ -338,8 +359,8 @@ func (m BrowserModel) View() string {
 				dirDisplay = "."
 			}
 			availDirW := m.Width - 6
-			if availDirW < 12 {
-				availDirW = 12
+			if availDirW < 4 {
+				availDirW = 4
 			}
 			dirText := truncateString(dirDisplay, availDirW)
 
@@ -355,7 +376,7 @@ func (m BrowserModel) View() string {
 				bodyRows = append(bodyRows, m.Theme.RowSelected.Render(line2Pad))
 
 				// Line 3: Subtle separator
-				sep := "   " + strings.Repeat("─", m.Width-6)
+				sep := "   " + strings.Repeat("─", sepLen)
 				bodyRows = append(bodyRows, m.Theme.Divider.Render(sep))
 			} else {
 				// Line 1: Normal Filename + Muted Timestamp
@@ -369,7 +390,7 @@ func (m BrowserModel) View() string {
 				bodyRows = append(bodyRows, m.Theme.ColDir.Render(line2Dir))
 
 				// Line 3: Subtle separator
-				sep := "   " + strings.Repeat("─", m.Width-6)
+				sep := "   " + strings.Repeat("─", sepLen)
 				bodyRows = append(bodyRows, m.Theme.Divider.Render(sep))
 			}
 		}
@@ -404,8 +425,16 @@ func (m BrowserModel) View() string {
 	commandsRight := fmt.Sprintf(" %s │ %d/%d ", m.Theme.Scheme.Name, posIdx, totalCount)
 	rightRendered := m.Theme.StatusBar.Render(commandsRight)
 
-	cLeftLen := len(StripANSI(commandsLeft))
-	cRightLen := len(StripANSI(rightRendered))
+	cLeftLen := lipgloss.Width(commandsLeft)
+	cRightLen := lipgloss.Width(rightRendered)
+	if cLeftLen+cRightLen+1 > m.Width {
+		commandsLeft = fmt.Sprintf(" %s  %s  %s  %s ", kOpen, kFilter, kHelp, kQuit)
+		cLeftLen = lipgloss.Width(commandsLeft)
+	}
+	if cLeftLen+cRightLen+1 > m.Width {
+		commandsLeft = fmt.Sprintf(" %s  %s ", kOpen, kQuit)
+		cLeftLen = lipgloss.Width(commandsLeft)
+	}
 	footerSpaces := m.Width - cLeftLen - cRightLen
 	if footerSpaces < 1 {
 		footerSpaces = 1
@@ -422,7 +451,7 @@ func (m BrowserModel) View() string {
 }
 
 func padToWidth(s string, targetWidth int) string {
-	plainLen := len([]rune(StripANSI(s)))
+	plainLen := lipgloss.Width(s)
 	if plainLen >= targetWidth {
 		return s
 	}
@@ -433,14 +462,21 @@ func truncateString(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return ""
 	}
-	runes := []rune(s)
-	if len(runes) <= maxLen {
+	if lipgloss.Width(s) <= maxLen {
 		return s
 	}
 	if maxLen <= 1 {
 		return "…"
 	}
-	return string(runes[:maxLen-1]) + "…"
+	runes := []rune(s)
+	var b strings.Builder
+	for _, r := range runes {
+		if lipgloss.Width(b.String()+string(r)+"…") > maxLen {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String() + "…"
 }
 
 func formatRelativeTime(t time.Time) string {

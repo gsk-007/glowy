@@ -142,6 +142,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	if flagLineNumbers {
 		lineNumbers = true
 	}
+	wrapWidth := cfg.ResolveWrapWidth(flagWidth)
 
 	// Case 1: Argument provided (file or directory)
 	if len(args) == 1 {
@@ -164,7 +165,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 				opts := render.RenderOptions{
 					Mode:        mode,
 					LineNumbers: lineNumbers,
-					Width:       flagWidth,
+					Width:       wrapWidth,
 					Theme:       theme,
 				}
 				res, err := render.Render(source, opts)
@@ -184,7 +185,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			app, err := ui.NewAppModel(nil, fileMeta, source, true, cfg, theme, mode, lineNumbers)
+			app, err := ui.NewAppModel(nil, fileMeta, source, true, cfg, theme, mode, lineNumbers, wrapWidth)
 			if err != nil {
 				return err
 			}
@@ -196,7 +197,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 		}
 
 		// Directory argument provided -> Open Browser on that directory
-		return openBrowser(target, cfg, theme, mode, lineNumbers)
+		return openBrowser(target, cfg, theme, mode, lineNumbers, wrapWidth)
 	}
 
 	// Case 2: Stdin piped (no arguments provided)
@@ -212,7 +213,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 			opts := render.RenderOptions{
 				Mode:        mode,
 				LineNumbers: lineNumbers,
-				Width:       flagWidth,
+				Width:       wrapWidth,
 				Theme:       theme,
 			}
 			res, err := render.Render(source, opts)
@@ -236,7 +237,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 		app, err := ui.NewAppModel(nil, &discovery.MarkdownFile{
 			Name: "stdin",
 			Path: "-",
-		}, source, true, cfg, theme, mode, lineNumbers)
+		}, source, true, cfg, theme, mode, lineNumbers, wrapWidth)
 		if err != nil {
 			return err
 		}
@@ -247,16 +248,16 @@ func runApp(cmd *cobra.Command, args []string) error {
 	}
 
 	// Case 3: No argument -> Open Browser on current directory "."
-	return openBrowser(".", cfg, theme, mode, lineNumbers)
+	return openBrowser(".", cfg, theme, mode, lineNumbers, wrapWidth)
 }
 
-func openBrowser(dir string, cfg *config.Config, theme *config.UITheme, mode string, lineNumbers bool) error {
+func openBrowser(dir string, cfg *config.Config, theme *config.UITheme, mode string, lineNumbers bool, wrapWidth int) error {
 	files, err := discovery.ScanDirectory(dir)
 	if err != nil {
 		return fmt.Errorf("failed to scan directory '%s': %w", dir, err)
 	}
 
-	app, err := ui.NewAppModel(files, nil, "", false, cfg, theme, mode, lineNumbers)
+	app, err := ui.NewAppModel(files, nil, "", false, cfg, theme, mode, lineNumbers, wrapWidth)
 	if err != nil {
 		return err
 	}

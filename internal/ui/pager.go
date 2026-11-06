@@ -29,6 +29,7 @@ type PagerModel struct {
 
 	Mode        string // "formatted" or "raw"
 	LineNumbers bool
+	WrapWidth   int // optional fixed wrap width override (-w or settings.json wordWrap)
 
 	Theme    *config.UITheme
 	Viewport viewport.Model
@@ -98,10 +99,16 @@ func NewPagerModel(filePath string, source string, theme *config.UITheme, mode s
 func (m *PagerModel) reRender() error {
 	m.Viewport.Style = lipgloss.NewStyle().Background(lipgloss.Color(m.Theme.Scheme.Background))
 
+	targetWrapWidth := m.Width
+	if m.WrapWidth > 0 && (targetWrapWidth <= 0 || m.WrapWidth < targetWrapWidth) {
+		targetWrapWidth = m.WrapWidth
+	}
+
 	opts := render.RenderOptions{
 		Mode:        m.Mode,
 		LineNumbers: m.LineNumbers,
-		Width:       m.Width,
+		Width:       targetWrapWidth,
+		CanvasWidth: m.Width,
 		Theme:       m.Theme,
 	}
 
@@ -371,6 +378,28 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func truncateLeft(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+	if maxWidth <= 1 {
+		return "…"
+	}
+	runes := []rune(s)
+	var rev []rune
+	for i := len(runes) - 1; i >= 0; i-- {
+		candidate := "…" + string(append([]rune{runes[i]}, rev...))
+		if lipgloss.Width(candidate) > maxWidth {
+			break
+		}
+		rev = append([]rune{runes[i]}, rev...)
+	}
+	return "…" + string(rev)
+}
+
 func (m PagerModel) View() string {
 	if m.Width == 0 || m.Height == 0 {
 		return ""
@@ -384,9 +413,6 @@ func (m PagerModel) View() string {
 		displayPath = filepath.ToSlash(displayPath)
 	}
 
-	badgeText := m.Theme.Badge.Render("DOC")
-	headerLeft := fmt.Sprintf(" %s %s %s", badgeText, m.Theme.Muted.Render("❯"), m.Theme.RowNormal.Bold(true).Render(displayPath))
-
 	fmtBadge := "[FMT]"
 	if m.Mode == "raw" {
 		fmtBadge = "[RAW]"
@@ -396,9 +422,20 @@ func (m PagerModel) View() string {
 		lnBadge = "[LN: ON]"
 	}
 	headerRight := fmt.Sprintf("%s %s ", m.Theme.Badge.Render(fmtBadge), m.Theme.TabActive.Render(lnBadge))
+	rightLen := lipgloss.Width(headerRight)
 
-	leftLen := len(StripANSI(headerLeft))
-	rightLen := len(StripANSI(headerRight))
+	badgeText := m.Theme.Badge.Render("DOC")
+	prefixLeft := fmt.Sprintf(" %s %s ", badgeText, m.Theme.Muted.Render("❯"))
+	prefixLen := lipgloss.Width(prefixLeft)
+
+	maxPathW := m.Width - prefixLen - rightLen - 2
+	if maxPathW < 4 {
+		maxPathW = 4
+	}
+	displayPath = truncateLeft(displayPath, maxPathW)
+	headerLeft := prefixLeft + m.Theme.RowNormal.Bold(true).Render(displayPath)
+
+	leftLen := lipgloss.Width(headerLeft)
 	spaceLen := m.Width - leftLen - rightLen
 	if spaceLen < 1 {
 		spaceLen = 1
@@ -424,13 +461,11 @@ func (m PagerModel) View() string {
 	viewportView := strings.Join(vpLines, "\n")
 
 	// 3. Bottom Status & Command Bar (1 line fixed)
-	hints := " ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • esc back • q quit "
-	hintRendered := m.Theme.StatusBar.Render(hints)
-
 	scrollStatus := " TOP "
-	if m.Viewport.AtBottom() {
+	if m.Viewport.YOffset > 0 && m.Viewport.AtBottom() {
 		scrollStatus = " BOT "
-	} else if pct := int(m.Viewport.ScrollPercent() * 100); pct > 0 {
+	} else if m.Viewport.YOffset > 0 {
+		pct := int(m.Viewport.ScrollPercent() * 100)
 		scrollStatus = fmt.Sprintf(" Ln %d • %d%% ", m.Viewport.YOffset+1, pct)
 	}
 
@@ -439,13 +474,35 @@ func (m PagerModel) View() string {
 		rightInfo = fmt.Sprintf(" %s • %s ", m.SearchInput.View(), scrollStatus)
 	} else if len(m.SearchMatches) > 0 {
 		rightInfo = fmt.Sprintf(" %d/%d matches • %s ", m.CurrentMatchIdx+1, len(m.SearchMatches), scrollStatus)
+	} else if m.SearchQuery != "" {
+		rightInfo = fmt.Sprintf(" 0 matches • %s ", scrollStatus)
 	} else {
 		rightInfo = fmt.Sprintf(" %s ", scrollStatus)
 	}
 	rightRendered := m.Theme.StatusPill.Render(rightInfo)
+	rLen := lipgloss.Width(rightRendered)
 
-	hLen := len(StripANSI(hintRendered))
-	rLen := len(StripANSI(rightRendered))
+	hintsCandidates := []string{
+		" ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • esc back • q quit ",
+		" ↑/↓ scroll • / search • r raw • l lines • ? help • q quit ",
+		" ↑/↓ • / search • r raw • l lines • ? help • q ",
+		" ? help • q quit ",
+		" ",
+	}
+
+	var hintRendered string
+	for _, candidate := range hintsCandidates {
+		rendered := m.Theme.StatusBar.Render(candidate)
+		if lipgloss.Width(rendered)+rLen+1 <= m.Width {
+			hintRendered = rendered
+			break
+		}
+	}
+	if hintRendered == "" {
+		hintRendered = m.Theme.StatusBar.Render(" ")
+	}
+
+	hLen := lipgloss.Width(hintRendered)
 	footerSpaces := m.Width - hLen - rLen
 	if footerSpaces < 1 {
 		footerSpaces = 1

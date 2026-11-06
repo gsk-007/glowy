@@ -141,3 +141,35 @@ func TestHelpModalAndThemeModalOverlay(t *testing.T) {
 		t.Fatalf("expected exactly 24 lines after overlay, got %d", len(overlaidLines))
 	}
 }
+
+func TestPagerStatusPillAndSearchVisibleAt80Cols(t *testing.T) {
+	theme := config.NewUITheme(config.DefaultSlateDark())
+	pager, err := NewPagerModel("README.md", "# Hello World\n\nSearchable content here.\n", theme, "formatted", true, true)
+	if err != nil {
+		t.Fatalf("NewPagerModel failed: %v", err)
+	}
+
+	pager, _ = pager.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	view := StripANSI(pager.View())
+	if !strings.Contains(view, "[FMT]") || !strings.Contains(view, "[LN: ON]") {
+		t.Fatalf("expected header badges [FMT] and [LN: ON] to be visible on 80-col screen, got:\n%s", view)
+	}
+	if !strings.Contains(view, "TOP") {
+		t.Fatalf("expected bottom-right status pill TOP to be visible on 80-col screen, got:\n%s", view)
+	}
+
+	// Activate search '/'
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	viewMatch := StripANSI(pager.View())
+	if !strings.Contains(viewMatch, "1/1 matches") {
+		t.Fatalf("expected '1/1 matches' pill to be visible on 80-col screen, got:\n%s", viewMatch)
+	}
+}
+

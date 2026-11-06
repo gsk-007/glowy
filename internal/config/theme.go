@@ -66,20 +66,13 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 	}
 
 	cfg := base
-	if s.Background != "" {
-		cfg.Document.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.Paragraph.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.Heading.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H1.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H2.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H3.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H4.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H5.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.H6.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.List.StyleBlock.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.Table.StyleBlock.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-		cfg.BlockQuote.StylePrimitive.BackgroundColor = stringPtr(s.Background)
-	}
+	// Note: Do NOT set StylePrimitive.BackgroundColor on Document, Paragraph,
+	// Heading, List, Table, or BlockQuote here. Setting BackgroundColor on
+	// Glamour StyleBlocks activates reflow/padding.Writer inside Glamour's
+	// BlockStack, which pads inner blocks and table cells with trailing spaces
+	// before tablewriter wraps them, truncating wrapped cell text on the right.
+	// Full-canvas background painting is handled cleanly after rendering by
+	// render.ApplyLineBackground.
 
 	if s.Foreground != "" {
 		cfg.Document.StylePrimitive.Color = stringPtr(s.Foreground)

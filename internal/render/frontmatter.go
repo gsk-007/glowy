@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/glowy/cli/internal/config"
+	"github.com/muesli/reflow/wordwrap"
+	"github.com/muesli/reflow/wrap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -119,24 +121,34 @@ func RenderFrontmatter(fm *Frontmatter, theme *config.UITheme, maxWidth int) str
 		}
 	}
 
+	boxWidth := 76
+	if maxWidth > 10 && maxWidth < boxWidth {
+		boxWidth = maxWidth
+	}
+
+	// Available inner width for value column: boxWidth - borders(2) - padding(2) - keyLen(maxKeyLen+2)
+	valWidth := boxWidth - 4 - (maxKeyLen + 2)
+	if valWidth < 12 {
+		valWidth = 12
+	}
+
 	var rows []string
+	keyIndent := strings.Repeat(" ", maxKeyLen+2)
 	for _, entry := range fm.Fields {
 		paddedKey := fmt.Sprintf("%-*s", maxKeyLen+1, entry[0]+":")
 		keyStr := theme.FrontmatterKey.Render(paddedKey)
-		valStr := theme.FrontmatterVal.Render(entry[1])
-		rows = append(rows, fmt.Sprintf("%s %s", keyStr, valStr))
+
+		wrappedVal := strings.Split(wrap.String(wordwrap.String(entry[1], valWidth), valWidth), "\n")
+		for idx, vLine := range wrappedVal {
+			valStr := theme.FrontmatterVal.Render(vLine)
+			if idx == 0 {
+				rows = append(rows, fmt.Sprintf("%s %s", keyStr, valStr))
+			} else {
+				rows = append(rows, fmt.Sprintf("%s%s", theme.FrontmatterKey.Render(keyIndent), valStr))
+			}
+		}
 	}
 
 	content := strings.Join(rows, "\n")
-	box := theme.FrontmatterBox
-	if maxWidth > 10 {
-		// Ensure box fits nicely within terminal width
-		width := maxWidth - 4
-		if width > 80 {
-			width = 80
-		}
-		box = box.MaxWidth(width)
-	}
-
-	return box.Render(content)
+	return theme.FrontmatterBox.Render(content)
 }
