@@ -334,10 +334,13 @@ func TestHeadingsRenderWithoutHashPrefixesAndWithVerticalHeight(t *testing.T) {
 		}
 	}
 
-	// Leading H1 should start on the first line without blank padding above it
+	// Leading H1 should render cleanly on line 0 with subtle 1-line spacing below
 	lines := strings.Split(plain, "\n")
-	if len(lines) == 0 || !strings.Contains(lines[0], "Top Title") {
-		t.Fatalf("expected leading H1 on line 0, got %q", lines[0])
+	if len(lines) < 3 || !strings.Contains(lines[0], "Top Title") {
+		t.Fatalf("expected leading H1 'Top Title' on line 0, got:\n%s", plain)
+	}
+	if strings.TrimSpace(lines[1]) != "" || !strings.Contains(lines[2], "Intro paragraph.") {
+		t.Fatalf("expected subtle 1-line gap after H1 before Intro paragraph, got lines 1-2: %q / %q", lines[1], lines[2])
 	}
 
 	countBlankBefore := func(target string) int {
@@ -356,8 +359,8 @@ func TestHeadingsRenderWithoutHashPrefixesAndWithVerticalHeight(t *testing.T) {
 	h1Blanks := countBlankBefore("Major Section")
 	h2Blanks := countBlankBefore("Sub Section")
 	h3Blanks := countBlankBefore("Minor Heading")
-	if !(h1Blanks > h2Blanks && h2Blanks > h3Blanks && h3Blanks >= 1) {
-		t.Fatalf("expected decreasing vertical height above H1 (%d) > H2 (%d) > H3 (%d) >= 1", h1Blanks, h2Blanks, h3Blanks)
+	if h1Blanks != 1 || h2Blanks != 1 || h3Blanks != 1 {
+		t.Fatalf("expected subtle 1-line spacing above H1 (%d), H2 (%d), and H3 (%d)", h1Blanks, h2Blanks, h3Blanks)
 	}
 }
 

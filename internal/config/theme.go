@@ -82,14 +82,14 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 		cfg.Document.StylePrimitive.Color = stringPtr(s.Foreground)
 	}
 
-	// Clear Glamour's default "#" / "##" prefixes and H1 background pill so headings
-	// convey hierarchy through vertical spacing, typographic weight, and color.
+	// Clear Glamour's default "#" / "##" prefixes and H1 background pill while keeping
+	// subtle 1-line vertical spacing across heading levels.
 	cfg.H1.StylePrimitive.BackgroundColor = nil
 	cfg.H1.StylePrimitive.Prefix = ""
 	cfg.H1.StylePrimitive.Suffix = ""
 	cfg.H1.StylePrimitive.Bold = boolPtr(true)
-	cfg.H1.StylePrimitive.BlockPrefix = "\n\n"
-	cfg.H1.StylePrimitive.BlockSuffix = "\n\n"
+	cfg.H1.StylePrimitive.BlockPrefix = ""
+	cfg.H1.StylePrimitive.BlockSuffix = "\n"
 	if s.Markdown.H1 != "" {
 		cfg.H1.StylePrimitive.Color = stringPtr(s.Markdown.H1)
 	}
@@ -97,7 +97,7 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 	cfg.H2.StylePrimitive.Prefix = ""
 	cfg.H2.StylePrimitive.Suffix = ""
 	cfg.H2.StylePrimitive.Bold = boolPtr(true)
-	cfg.H2.StylePrimitive.BlockPrefix = "\n"
+	cfg.H2.StylePrimitive.BlockPrefix = ""
 	cfg.H2.StylePrimitive.BlockSuffix = "\n"
 	if s.Markdown.H2 != "" {
 		cfg.H2.StylePrimitive.Color = stringPtr(s.Markdown.H2)

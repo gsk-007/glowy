@@ -279,7 +279,7 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q", "Q", "ctrl+c":
 			if m.Watcher != nil {
 				_ = m.Watcher.Close()
 				m.Watcher = nil
@@ -287,7 +287,7 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 			m.Canceled = true
 			return m, tea.Quit
 
-		case "b":
+		case "b", "B":
 			if m.Standalone {
 				return m, nil
 			}
@@ -345,7 +345,7 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 				m.scrollToMatch(m.CurrentMatchIdx)
 			}
 
-		case "r":
+		case "r", "R":
 			if m.Mode == "formatted" {
 				m.Mode = "raw"
 			} else {
@@ -360,22 +360,22 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 			}
 			m.Viewport.SetYOffset(newY)
 
-		case "l":
+		case "l", "L":
 			m.LineNumbers = !m.LineNumbers
 			oldY := m.Viewport.YOffset
 			_ = m.reRender()
 			m.Viewport.SetYOffset(oldY)
 
-		case "up", "k":
+		case "up", "k", "K":
 			m.Viewport.LineUp(1)
 
-		case "down", "j":
+		case "down", "j", "J":
 			m.Viewport.LineDown(1)
 
-		case "pgup", "u":
+		case "pgup", "u", "U":
 			m.Viewport.HalfViewUp()
 
-		case "pgdown", "d":
+		case "pgdown", "d", "D":
 			m.Viewport.HalfViewDown()
 
 		case "home", "g":

@@ -133,12 +133,23 @@ func TestHelpModalAndThemeModalOverlay(t *testing.T) {
 		t.Fatalf("expected Theme modal to contain SlateDark, got: %s", modalView)
 	}
 
-	// Verify Overlay preserves height
-	base := strings.Repeat("line\n", 23) + "line"
-	overlaid := Overlay(base, modalView, 80, 24)
+	// Verify Overlay preserves height and keeps dimmed backdrop text visible around the modal
+	var baseRows []string
+	for i := 0; i < 24; i++ {
+		baseRows = append(baseRows, fmt.Sprintf("LEFT_EDGE_%02d%sRIGHT_EDGE_%02d", i, strings.Repeat(" ", 55), i))
+	}
+	base := strings.Join(baseRows, "\n")
+	overlaid := Overlay(base, modalView, 80, 24, theme.Scheme.Background)
 	overlaidLines := strings.Split(overlaid, "\n")
 	if len(overlaidLines) != 24 {
 		t.Fatalf("expected exactly 24 lines after overlay, got %d", len(overlaidLines))
+	}
+	plainOverlaid := StripANSI(overlaid)
+	if !strings.Contains(plainOverlaid, "LEFT_EDGE_10") || !strings.Contains(plainOverlaid, "RIGHT_EDGE_10") {
+		t.Fatalf("expected dimmed backdrop flanks to remain visible beside modal, got:\n%s", plainOverlaid)
+	}
+	if !strings.Contains(plainOverlaid, "COLOR SCHEMES") {
+		t.Fatalf("expected modal content to remain visible in overlay")
 	}
 }
 
@@ -160,11 +171,9 @@ func TestPagerStatusPillAndSearchVisibleAt80Cols(t *testing.T) {
 
 	// Activate search '/'
 	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
-	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	for _, r := range "world" {
+		pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
 	pager, _ = pager.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	viewMatch := StripANSI(pager.View())

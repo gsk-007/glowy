@@ -106,7 +106,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Pager.Watcher = nil
 				}
 				return m, tea.Quit
-			case "?", "esc", "enter", "q", "backspace":
+			case "?", "esc", "enter", "q", "Q", "backspace":
 				m.ShowingHelp = false
 				return m, nil
 			default:
@@ -123,21 +123,24 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Pager.Watcher = nil
 				}
 				return m, tea.Quit
-			case "up", "k":
+			case "up", "k", "K":
 				scheme := m.ThemeModal.MoveCursor(-1)
 				m.applyTheme(scheme)
 				return m, nil
-			case "down", "j":
+			case "down", "j", "J":
 				scheme := m.ThemeModal.MoveCursor(1)
 				m.applyTheme(scheme)
 				return m, nil
 			case "enter":
 				selected := m.ThemeModal.SelectedScheme()
 				m.applyTheme(selected)
+				if m.Config != nil {
+					m.Config.DefaultScheme = selected.Name
+				}
 				_ = config.SaveDefaultScheme(selected.Name)
 				m.ShowingTheme = false
 				return m, nil
-			case "esc", "q", "backspace", "t":
+			case "esc", "q", "Q", "backspace", "t", "T":
 				orig := m.Config.GetScheme(m.ThemeModal.OriginalScheme)
 				m.applyTheme(orig)
 				m.ShowingTheme = false
@@ -154,7 +157,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "?":
 				m.ShowingHelp = true
 				return m, nil
-			case "t":
+			case "t", "T":
 				m.ShowingTheme = true
 				m.ThemeModal = NewThemeModal(m.Config.Schemes, m.Theme.Scheme.Name)
 				return m, nil
@@ -219,8 +222,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.DirectPager {
 				return m, tea.Quit
 			}
+			m.DefaultMode = m.Pager.Mode
+			m.LineNumbers = m.Pager.LineNumbers
 			m.State = StateBrowser
 			m.Browser.SelectedFile = nil
+			m.Pager = nil
 			return m, nil
 		}
 

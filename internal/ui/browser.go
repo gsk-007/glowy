@@ -146,6 +146,9 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.Filtering {
 			switch msg.String() {
+			case "ctrl+c":
+				m.Canceled = true
+				return m, tea.Quit
 			case "esc":
 				m.Filtering = false
 				m.FilterInput.Blur()
@@ -153,6 +156,18 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			case "enter":
 				m.Filtering = false
 				m.FilterInput.Blur()
+				return m, nil
+			case "up":
+				if m.Cursor > 0 {
+					m.Cursor--
+					m.adjustScroll()
+				}
+				return m, nil
+			case "down":
+				if m.Cursor < len(m.DisplayedFiles)-1 {
+					m.Cursor++
+					m.adjustScroll()
+				}
 				return m, nil
 			default:
 				m.FilterInput, cmd = m.FilterInput.Update(msg)
@@ -162,7 +177,7 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q", "Q", "ctrl+c":
 			m.Canceled = true
 			return m, tea.Quit
 
@@ -180,22 +195,22 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			m.FilterInput.Focus()
 			return m, textinput.Blink
 
-		case "s":
+		case "s", "S":
 			m.cycleSort()
 
-		case "up", "k":
+		case "up", "k", "K":
 			if m.Cursor > 0 {
 				m.Cursor--
 				m.adjustScroll()
 			}
 
-		case "down", "j":
+		case "down", "j", "J":
 			if m.Cursor < len(m.DisplayedFiles)-1 {
 				m.Cursor++
 				m.adjustScroll()
 			}
 
-		case "pgup", "u":
+		case "pgup", "u", "U":
 			pageSize := (m.Height - 2) / 6
 			if pageSize < 1 {
 				pageSize = 2
@@ -206,7 +221,7 @@ func (m BrowserModel) Update(msg tea.Msg) (BrowserModel, tea.Cmd) {
 			}
 			m.adjustScroll()
 
-		case "pgdown", "d":
+		case "pgdown", "d", "D":
 			pageSize := (m.Height - 2) / 6
 			if pageSize < 1 {
 				pageSize = 2
