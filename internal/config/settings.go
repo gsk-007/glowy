@@ -146,13 +146,13 @@ func DefaultCrystalLight() Scheme {
 	}
 }
 
-// DefaultSchemes returns the 4 built-in schemes (2 dark, 2 light).
+// DefaultSchemes returns the 4 built-in schemes (2 dark on top, 2 light below).
 func DefaultSchemes() []Scheme {
 	return []Scheme{
-		DefaultSlateDark(),
 		DefaultObsidianGlow(),
-		DefaultPaperLight(),
+		DefaultSlateDark(),
 		DefaultCrystalLight(),
+		DefaultPaperLight(),
 	}
 }
 
@@ -217,21 +217,43 @@ func LoadConfig() (*Config, error) {
 		return DefaultConfig(), err
 	}
 
-	// Ensure all built-in schemes are available even for pre-existing settings.json files.
+	// Ensure all built-in schemes are available in dark-then-light order while preserving custom schemes.
 	if len(cfg.Schemes) == 0 {
 		cfg.Schemes = DefaultSchemes()
 	} else {
-		for _, def := range DefaultSchemes() {
-			found := false
-			for _, existing := range cfg.Schemes {
-				if strings.EqualFold(existing.Name, def.Name) {
-					found = true
-					break
+		defaults := DefaultSchemes()
+		byName := make(map[string]Scheme, len(cfg.Schemes))
+		isBuiltin := make(map[string]bool, len(defaults))
+		for _, def := range defaults {
+			isBuiltin[strings.ToLower(def.Name)] = true
+		}
+
+		missingBuiltin := false
+		var custom []Scheme
+		for _, existing := range cfg.Schemes {
+			key := strings.ToLower(existing.Name)
+			byName[key] = existing
+			if !isBuiltin[key] {
+				custom = append(custom, existing)
+			}
+		}
+		for _, def := range defaults {
+			if _, ok := byName[strings.ToLower(def.Name)]; !ok {
+				missingBuiltin = true
+				break
+			}
+		}
+		if missingBuiltin {
+			merged := make([]Scheme, 0, len(defaults)+len(custom))
+			for _, def := range defaults {
+				if existing, ok := byName[strings.ToLower(def.Name)]; ok {
+					merged = append(merged, existing)
+				} else {
+					merged = append(merged, def)
 				}
 			}
-			if !found {
-				cfg.Schemes = append(cfg.Schemes, def)
-			}
+			merged = append(merged, custom...)
+			cfg.Schemes = merged
 		}
 	}
 	if cfg.DefaultScheme == "" {

@@ -15,7 +15,11 @@ func TestDefaultConfig(t *testing.T) {
 		t.Fatalf("expected 4 schemes, got %d", len(cfg.Schemes))
 	}
 
-	for _, name := range []string{"SlateDark", "ObsidianGlow", "PaperLight", "CrystalLight"} {
+	expectedOrder := []string{"ObsidianGlow", "SlateDark", "CrystalLight", "PaperLight"}
+	for i, name := range expectedOrder {
+		if cfg.Schemes[i].Name != name {
+			t.Fatalf("expected scheme %d to be %s, got %s", i, name, cfg.Schemes[i].Name)
+		}
 		got := cfg.GetScheme(name)
 		if got.Name != name {
 			t.Fatalf("expected %s, got %s", name, got.Name)
@@ -87,7 +91,10 @@ func TestLoadConfigBootstrap(t *testing.T) {
 	if len(migrated.Schemes) != 4 {
 		t.Fatalf("expected 4 schemes after merging built-ins, got %d", len(migrated.Schemes))
 	}
-	if migrated.GetScheme("ObsidianGlow").Name != "ObsidianGlow" || migrated.GetScheme("CrystalLight").Name != "CrystalLight" {
-		t.Fatalf("expected ObsidianGlow and CrystalLight to be available")
+	expectedOrder := []string{"ObsidianGlow", "SlateDark", "CrystalLight", "PaperLight"}
+	for i, name := range expectedOrder {
+		if migrated.Schemes[i].Name != name {
+			t.Fatalf("expected migrated scheme %d to be %s, got %s", i, name, migrated.Schemes[i].Name)
+		}
 	}
 }
