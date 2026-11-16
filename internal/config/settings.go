@@ -217,7 +217,8 @@ func LoadConfig() (*Config, error) {
 		return DefaultConfig(), err
 	}
 
-	// Ensure all built-in schemes are available in dark-then-light order while preserving custom schemes.
+	// Keep built-in schemes in dark-then-light order (ObsidianGlow, SlateDark, CrystalLight, PaperLight)
+	// while preserving any customized values and appending user-defined custom schemes.
 	if len(cfg.Schemes) == 0 {
 		cfg.Schemes = DefaultSchemes()
 	} else {
@@ -228,7 +229,6 @@ func LoadConfig() (*Config, error) {
 			isBuiltin[strings.ToLower(def.Name)] = true
 		}
 
-		missingBuiltin := false
 		var custom []Scheme
 		for _, existing := range cfg.Schemes {
 			key := strings.ToLower(existing.Name)
@@ -237,24 +237,17 @@ func LoadConfig() (*Config, error) {
 				custom = append(custom, existing)
 			}
 		}
+
+		merged := make([]Scheme, 0, len(defaults)+len(custom))
 		for _, def := range defaults {
-			if _, ok := byName[strings.ToLower(def.Name)]; !ok {
-				missingBuiltin = true
-				break
+			if existing, ok := byName[strings.ToLower(def.Name)]; ok {
+				merged = append(merged, existing)
+			} else {
+				merged = append(merged, def)
 			}
 		}
-		if missingBuiltin {
-			merged := make([]Scheme, 0, len(defaults)+len(custom))
-			for _, def := range defaults {
-				if existing, ok := byName[strings.ToLower(def.Name)]; ok {
-					merged = append(merged, existing)
-				} else {
-					merged = append(merged, def)
-				}
-			}
-			merged = append(merged, custom...)
-			cfg.Schemes = merged
-		}
+		merged = append(merged, custom...)
+		cfg.Schemes = merged
 	}
 	if cfg.DefaultScheme == "" {
 		cfg.DefaultScheme = "ObsidianGlow"
