@@ -58,6 +58,10 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 // ToGlamourStyle converts the Scheme's Markdown color definitions into a Glamour ansi.StyleConfig.
 func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 	base := styles.DarkStyleConfig
@@ -78,14 +82,63 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 		cfg.Document.StylePrimitive.Color = stringPtr(s.Foreground)
 	}
 
+	// Clear Glamour's default "#" / "##" prefixes and H1 background pill so headings
+	// convey hierarchy through vertical spacing, typographic weight, and color.
+	cfg.H1.StylePrimitive.BackgroundColor = nil
+	cfg.H1.StylePrimitive.Prefix = ""
+	cfg.H1.StylePrimitive.Suffix = ""
+	cfg.H1.StylePrimitive.Bold = boolPtr(true)
+	cfg.H1.StylePrimitive.BlockPrefix = "\n\n"
+	cfg.H1.StylePrimitive.BlockSuffix = "\n\n"
 	if s.Markdown.H1 != "" {
 		cfg.H1.StylePrimitive.Color = stringPtr(s.Markdown.H1)
 	}
+
+	cfg.H2.StylePrimitive.Prefix = ""
+	cfg.H2.StylePrimitive.Suffix = ""
+	cfg.H2.StylePrimitive.Bold = boolPtr(true)
+	cfg.H2.StylePrimitive.BlockPrefix = "\n"
+	cfg.H2.StylePrimitive.BlockSuffix = "\n"
 	if s.Markdown.H2 != "" {
 		cfg.H2.StylePrimitive.Color = stringPtr(s.Markdown.H2)
 	}
+
+	cfg.H3.StylePrimitive.Prefix = ""
+	cfg.H3.StylePrimitive.Suffix = ""
+	cfg.H3.StylePrimitive.Bold = boolPtr(true)
+	cfg.H3.StylePrimitive.BlockPrefix = ""
+	cfg.H3.StylePrimitive.BlockSuffix = "\n"
 	if s.Markdown.H3 != "" {
 		cfg.H3.StylePrimitive.Color = stringPtr(s.Markdown.H3)
+	}
+
+	cfg.H4.StylePrimitive.Prefix = ""
+	cfg.H4.StylePrimitive.Suffix = ""
+	cfg.H4.StylePrimitive.Bold = boolPtr(true)
+	cfg.H4.StylePrimitive.BlockPrefix = ""
+	cfg.H4.StylePrimitive.BlockSuffix = "\n"
+	if s.Foreground != "" {
+		cfg.H4.StylePrimitive.Color = stringPtr(s.Foreground)
+	}
+
+	cfg.H5.StylePrimitive.Prefix = ""
+	cfg.H5.StylePrimitive.Suffix = ""
+	cfg.H5.StylePrimitive.Bold = boolPtr(true)
+	cfg.H5.StylePrimitive.Italic = boolPtr(true)
+	cfg.H5.StylePrimitive.BlockPrefix = ""
+	cfg.H5.StylePrimitive.BlockSuffix = "\n"
+	if s.Foreground != "" {
+		cfg.H5.StylePrimitive.Color = stringPtr(s.Foreground)
+	}
+
+	cfg.H6.StylePrimitive.Prefix = ""
+	cfg.H6.StylePrimitive.Suffix = ""
+	cfg.H6.StylePrimitive.Bold = boolPtr(false)
+	cfg.H6.StylePrimitive.Italic = boolPtr(true)
+	cfg.H6.StylePrimitive.BlockPrefix = ""
+	cfg.H6.StylePrimitive.BlockSuffix = "\n"
+	if s.Muted != "" {
+		cfg.H6.StylePrimitive.Color = stringPtr(s.Muted)
 	}
 	if s.Markdown.CodeInlineFg != "" {
 		cfg.Code.StylePrimitive.Color = stringPtr(s.Markdown.CodeInlineFg)

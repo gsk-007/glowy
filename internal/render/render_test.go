@@ -298,14 +298,111 @@ func TestTableWrappingPreservesAllContent(t *testing.T) {
 		"interactive TUI",
 		"pager.",
 		"formatted output.",
-		"filenames and directory paths",
+		"filenames",
+		"and directory paths",
 		"Created ↓",
-		"Syntax-Highlighted Raw Markdown",
+		"Syntax-",
+		"Highlighted Raw Markdown",
 		"231 │",
 	}
 	for _, phrase := range expectedPhrases {
 		if !strings.Contains(plain, phrase) {
 			t.Errorf("expected rendered README to contain wrapped phrase %q, but it was missing", phrase)
+		}
+	}
+}
+
+func TestHeadingsRenderWithoutHashPrefixesAndWithVerticalHeight(t *testing.T) {
+	doc := "# Top Title\n\nIntro paragraph.\n\n# Major Section\n\nSection body.\n\n## Sub Section\n\nSub body.\n\n### Minor Heading\n\nMinor body.\n\n#### Fourth Level\n\nFifth intro.\n\n##### Fifth Level\n\nSixth intro.\n\n###### Sixth Level\n\nEnd.\n"
+	cfg := config.DefaultConfig()
+	theme := config.NewUITheme(cfg.GetScheme("SlateDark"))
+
+	res, err := Render(doc, RenderOptions{
+		Mode:        "formatted",
+		LineNumbers: false,
+		Width:       80,
+		Theme:       theme,
+	})
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+
+	plain := StripANSI(res.Content)
+	for _, badPrefix := range []string{"# Top", "## Sub", "### Minor", "#### Fourth", "##### Fifth", "###### Sixth"} {
+		if strings.Contains(plain, badPrefix) {
+			t.Errorf("heading prefix should not appear in rendered output, found %q", badPrefix)
+		}
+	}
+
+	// Leading H1 should start on the first line without blank padding above it
+	lines := strings.Split(plain, "\n")
+	if len(lines) == 0 || !strings.Contains(lines[0], "Top Title") {
+		t.Fatalf("expected leading H1 on line 0, got %q", lines[0])
+	}
+
+	countBlankBefore := func(target string) int {
+		for i, l := range lines {
+			if strings.Contains(l, target) {
+				blanks := 0
+				for j := i - 1; j >= 0 && strings.TrimSpace(lines[j]) == ""; j-- {
+					blanks++
+				}
+				return blanks
+			}
+		}
+		return -1
+	}
+
+	h1Blanks := countBlankBefore("Major Section")
+	h2Blanks := countBlankBefore("Sub Section")
+	h3Blanks := countBlankBefore("Minor Heading")
+	if !(h1Blanks > h2Blanks && h2Blanks > h3Blanks && h3Blanks >= 1) {
+		t.Fatalf("expected decreasing vertical height above H1 (%d) > H2 (%d) > H3 (%d) >= 1", h1Blanks, h2Blanks, h3Blanks)
+	}
+}
+
+func TestBeautifiedTableRendering(t *testing.T) {
+	doc := "# Table Test\n\n| Name | Align | Count |\n| :--- | :---: | ---: |\n| `alpha` | mid | 10 |\n| **beta** | ok | 200 |\n\nAfter table.\n"
+	cfg := config.DefaultConfig()
+
+	for _, schemeName := range []string{"SlateDark", "PaperLight"} {
+		theme := config.NewUITheme(cfg.GetScheme(schemeName))
+		res, err := Render(doc, RenderOptions{
+			Mode:        "formatted",
+			LineNumbers: true,
+			Width:       80,
+			Theme:       theme,
+		})
+		if err != nil {
+			t.Fatalf("%s render failed: %v", schemeName, err)
+		}
+
+		plain := StripANSI(res.Content)
+		for _, ch := range []string{"╭", "╮", "╰", "╯", "├", "┼", "┤", "│"} {
+			if !strings.Contains(plain, ch) {
+				t.Errorf("%s: expected rounded table border char %q in output:\n%s", schemeName, ch, plain)
+			}
+		}
+
+		// Verify line numbers stay aligned: line 1 = "# Table Test", line 3 = table start, line 8 = "After table."
+		foundLine1, foundLine3, foundLine8 := false, false, false
+		for _, l := range res.Lines {
+			p := StripANSI(l)
+			if strings.Contains(p, "1 │") && strings.Contains(p, "Table Test") {
+				foundLine1 = true
+			}
+			if strings.Contains(p, "3 │") && strings.Contains(p, "╭") {
+				foundLine3 = true
+			}
+			if strings.Contains(p, "8 │") && strings.Contains(p, "After table.") {
+				foundLine8 = true
+			}
+			if lipgloss.Width(l) > 80 {
+				t.Errorf("%s: line exceeded width 80: %d", schemeName, lipgloss.Width(l))
+			}
+		}
+		if !foundLine1 || !foundLine3 || !foundLine8 {
+			t.Fatalf("%s: gutter line alignment mismatch (1=%v, 3=%v, 8=%v):\n%s", schemeName, foundLine1, foundLine3, foundLine8, plain)
 		}
 	}
 }

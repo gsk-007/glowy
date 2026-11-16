@@ -125,7 +125,8 @@ func renderFormatted(body string, fm *Frontmatter, fmLinesCount, totalRawLines, 
 		return nil, err
 	}
 
-	renderedMarkdown, err := renderer.Render(body)
+	preprocessedBody, parsedTables := preprocessTables(body, opts.Theme.Scheme)
+	renderedMarkdown, err := renderer.Render(preprocessedBody)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +158,17 @@ func renderFormatted(body string, fm *Frontmatter, fmLinesCount, totalRawLines, 
 		}
 	}
 
-	// Clean up leading newlines Glamour introduces
-	trimmedMarkdown := strings.TrimLeft(renderedMarkdown, "\n")
-	trimmedMarkdown = strings.TrimRight(trimmedMarkdown, "\n")
+	// Clean up leading and trailing blank lines (including margin-padded blank lines)
+	trimmedMarkdown := strings.Trim(renderedMarkdown, "\n")
 	if trimmedMarkdown != "" {
 		bodyLines := strings.Split(trimmedMarkdown, "\n")
+		for len(bodyLines) > 0 && strings.TrimSpace(StripANSI(bodyLines[0])) == "" {
+			bodyLines = bodyLines[1:]
+		}
+		for len(bodyLines) > 0 && strings.TrimSpace(StripANSI(bodyLines[len(bodyLines)-1])) == "" {
+			bodyLines = bodyLines[:len(bodyLines)-1]
+		}
+		bodyLines = spliceRenderedTables(bodyLines, parsedTables, opts.Theme.Scheme, availBodyWidth)
 		// Safety pass before attaching gutter: wrap any lines that exceed availBodyWidth
 		// (e.g. long unbroken URLs or code lines) so ComposeFormattedGutter naturally
 		// assigns blankGutter to wrapped continuation lines without string-splitting on "│".

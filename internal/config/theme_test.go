@@ -44,6 +44,12 @@ func TestUIThemeAndGlamour(t *testing.T) {
 	if glamourStyle.H1.StylePrimitive.Color == nil || *glamourStyle.H1.StylePrimitive.Color != scheme.Markdown.H1 {
 		t.Fatalf("H1 color mismatch: %v vs %v", glamourStyle.H1.StylePrimitive.Color, scheme.Markdown.H1)
 	}
+	if glamourStyle.H1.StylePrimitive.BackgroundColor != nil {
+		t.Fatalf("expected H1 BackgroundColor to be nil, got %v", *glamourStyle.H1.StylePrimitive.BackgroundColor)
+	}
+	if glamourStyle.H2.StylePrimitive.Prefix != "" || glamourStyle.H3.StylePrimitive.Prefix != "" {
+		t.Fatalf("expected empty heading prefixes, got H2=%q H3=%q", glamourStyle.H2.StylePrimitive.Prefix, glamourStyle.H3.StylePrimitive.Prefix)
+	}
 }
 
 func TestLoadConfigBootstrap(t *testing.T) {
