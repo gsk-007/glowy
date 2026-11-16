@@ -48,7 +48,7 @@ func RenderHelpModal(theme *config.UITheme, width int) string {
 	lines = append(lines, " "+secStyle.Render("GLOBAL"))
 	lines = append(lines, row("t", "Switch Color Theme (Live Preview)"))
 	lines = append(lines, row("?", "Toggle this Help Menu"))
-	lines = append(lines, row("Esc / Backspace", "Back to browser / Clear search"))
+	lines = append(lines, row("b / Esc / Backspace", "Back to browser / Clear search"))
 	lines = append(lines, row("q", "Quit application"))
 	lines = append(lines, "")
 	lines = append(lines, "  "+theme.Muted.Render("[ Press ? or Esc to close ]"))

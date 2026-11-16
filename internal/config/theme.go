@@ -144,6 +144,7 @@ func (s Scheme) ToGlamourStyle() ansi.StyleConfig {
 		cfg.Code.StylePrimitive.Color = stringPtr(s.Markdown.CodeInlineFg)
 	}
 	if s.Markdown.CodeBlockBg != "" {
+		cfg.Code.StylePrimitive.BackgroundColor = stringPtr(s.Markdown.CodeBlockBg)
 		cfg.CodeBlock.StylePrimitive.BackgroundColor = stringPtr(s.Markdown.CodeBlockBg)
 		if cfg.CodeBlock.Chroma != nil {
 			chromaCopy := *cfg.CodeBlock.Chroma

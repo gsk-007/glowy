@@ -294,7 +294,7 @@ func (m BrowserModel) View() string {
 		spacesLine0 = 1
 	}
 	headerLine := leftPart + strings.Repeat(" ", spacesLine0) + rightPart
-	headerRendered := m.Theme.Base.Width(m.Width).MaxHeight(1).Render(headerLine)
+	headerRendered := render.ApplyLineBackground(headerLine, m.Width, m.Theme.Scheme.Background)
 
 	// ---------------------------------------------------------
 	// 2. VERTICAL CARD FEED BODY (Strictly bodyHeight lines)
@@ -407,13 +407,14 @@ func (m BrowserModel) View() string {
 	// ---------------------------------------------------------
 	// 3. BOTTOM PINNED COMMAND BAR (Line m.Height - 1)
 	// ---------------------------------------------------------
-	kOpen := m.Theme.KeyBadge.Render("↵") + " open"
-	kFilter := m.Theme.KeyBadge.Render("/") + " filter"
-	kSort := m.Theme.KeyBadge.Render("s") + " sort"
-	kTheme := m.Theme.KeyBadge.Render("t") + " theme"
-	kHelp := m.Theme.KeyBadge.Render("?") + " help"
-	kNav := m.Theme.KeyBadge.Render("↑/↓") + " nav"
-	kQuit := m.Theme.KeyBadge.Render("q") + " quit"
+	keyBadgeStyle := m.Theme.KeyBadge.Background(lipgloss.Color(m.Theme.Scheme.StatusBarBg))
+	kOpen := keyBadgeStyle.Render("↵") + m.Theme.StatusBar.Render(" open")
+	kFilter := keyBadgeStyle.Render("/") + m.Theme.StatusBar.Render(" filter")
+	kSort := keyBadgeStyle.Render("s") + m.Theme.StatusBar.Render(" sort")
+	kTheme := keyBadgeStyle.Render("t") + m.Theme.StatusBar.Render(" theme")
+	kHelp := keyBadgeStyle.Render("?") + m.Theme.StatusBar.Render(" help")
+	kNav := keyBadgeStyle.Render("↑/↓") + m.Theme.StatusBar.Render(" nav")
+	kQuit := keyBadgeStyle.Render("q") + m.Theme.StatusBar.Render(" quit")
 
 	commandsLeft := fmt.Sprintf(" %s  %s  %s  %s  %s  %s  %s ", kOpen, kFilter, kSort, kTheme, kHelp, kNav, kQuit)
 
@@ -440,7 +441,7 @@ func (m BrowserModel) View() string {
 		footerSpaces = 1
 	}
 	footerLine := commandsLeft + strings.Repeat(" ", footerSpaces) + rightRendered
-	footerRendered := m.Theme.StatusBar.Width(m.Width).MaxHeight(1).Render(footerLine)
+	footerRendered := render.ApplyLineBackground(footerLine, m.Width, m.Theme.Scheme.StatusBarBg)
 
 	// Combine into exactly m.Height lines
 	allOutputLines := []string{headerRendered}

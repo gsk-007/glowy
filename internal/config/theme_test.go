@@ -8,26 +8,23 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.DefaultScheme != "SlateDark" {
-		t.Fatalf("expected SlateDark, got %s", cfg.DefaultScheme)
+	if cfg.DefaultScheme != "ObsidianGlow" {
+		t.Fatalf("expected ObsidianGlow, got %s", cfg.DefaultScheme)
 	}
-	if len(cfg.Schemes) != 2 {
-		t.Fatalf("expected 2 schemes, got %d", len(cfg.Schemes))
-	}
-
-	slate := cfg.GetScheme("SlateDark")
-	if slate.Name != "SlateDark" {
-		t.Fatalf("expected SlateDark, got %s", slate.Name)
+	if len(cfg.Schemes) != 4 {
+		t.Fatalf("expected 4 schemes, got %d", len(cfg.Schemes))
 	}
 
-	paper := cfg.GetScheme("PaperLight")
-	if paper.Name != "PaperLight" {
-		t.Fatalf("expected PaperLight, got %s", paper.Name)
+	for _, name := range []string{"SlateDark", "ObsidianGlow", "PaperLight", "CrystalLight"} {
+		got := cfg.GetScheme(name)
+		if got.Name != name {
+			t.Fatalf("expected %s, got %s", name, got.Name)
+		}
 	}
 
 	unknown := cfg.GetScheme("nonexistent")
-	if unknown.Name != "SlateDark" {
-		t.Fatalf("expected fallback to SlateDark, got %s", unknown.Name)
+	if unknown.Name != "ObsidianGlow" {
+		t.Fatalf("expected fallback to ObsidianGlow, got %s", unknown.Name)
 	}
 }
 
@@ -68,13 +65,29 @@ func TestLoadConfigBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
-	if cfg.DefaultScheme != "SlateDark" {
-		t.Fatalf("expected SlateDark, got %s", cfg.DefaultScheme)
+	if cfg.DefaultScheme != "ObsidianGlow" {
+		t.Fatalf("expected ObsidianGlow, got %s", cfg.DefaultScheme)
 	}
 
 	// Verify file was written
 	writtenPath := filepath.Join(tempDir, "glowy", "settings.json")
 	if _, err := os.Stat(writtenPath); err != nil {
 		t.Fatalf("settings.json was not created at %s: %v", writtenPath, err)
+	}
+
+	// Verify legacy 2-scheme settings.json gets new built-in schemes appended
+	legacy := `{"defaultScheme":"PaperLight","schemes":[{"name":"SlateDark","background":"#121417"},{"name":"PaperLight","background":"#FAFAFA"}]}`
+	if err := os.WriteFile(writtenPath, []byte(legacy), 0644); err != nil {
+		t.Fatalf("failed to write legacy settings.json: %v", err)
+	}
+	migrated, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig on legacy settings failed: %v", err)
+	}
+	if len(migrated.Schemes) != 4 {
+		t.Fatalf("expected 4 schemes after merging built-ins, got %d", len(migrated.Schemes))
+	}
+	if migrated.GetScheme("ObsidianGlow").Name != "ObsidianGlow" || migrated.GetScheme("CrystalLight").Name != "CrystalLight" {
+		t.Fatalf("expected ObsidianGlow and CrystalLight to be available")
 	}
 }

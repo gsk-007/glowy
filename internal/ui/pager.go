@@ -287,6 +287,17 @@ func (m PagerModel) Update(msg tea.Msg) (PagerModel, tea.Cmd) {
 			m.Canceled = true
 			return m, tea.Quit
 
+		case "b":
+			if m.Standalone {
+				return m, nil
+			}
+			if m.Watcher != nil {
+				_ = m.Watcher.Close()
+				m.Watcher = nil
+			}
+			m.ReturnToBrowser = true
+			return m, nil
+
 		case "esc", "backspace":
 			if m.SearchQuery != "" {
 				m.SearchQuery = ""
@@ -421,11 +432,20 @@ func (m PagerModel) View() string {
 	if m.LineNumbers {
 		lnBadge = "[LN: ON]"
 	}
+	sbBg := lipgloss.Color(m.Theme.Scheme.StatusBarBg)
+	headerMuted := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.Theme.Scheme.Muted)).
+		Background(sbBg)
+	headerPathStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.Theme.Scheme.Foreground)).
+		Background(sbBg).
+		Bold(true)
+
 	headerRight := fmt.Sprintf("%s %s ", m.Theme.Badge.Render(fmtBadge), m.Theme.TabActive.Render(lnBadge))
 	rightLen := lipgloss.Width(headerRight)
 
 	badgeText := m.Theme.Badge.Render("DOC")
-	prefixLeft := fmt.Sprintf(" %s %s ", badgeText, m.Theme.Muted.Render("❯"))
+	prefixLeft := fmt.Sprintf(" %s %s ", badgeText, headerMuted.Render("❯"))
 	prefixLen := lipgloss.Width(prefixLeft)
 
 	maxPathW := m.Width - prefixLen - rightLen - 2
@@ -433,7 +453,7 @@ func (m PagerModel) View() string {
 		maxPathW = 4
 	}
 	displayPath = truncateLeft(displayPath, maxPathW)
-	headerLeft := prefixLeft + m.Theme.RowNormal.Bold(true).Render(displayPath)
+	headerLeft := prefixLeft + headerPathStyle.Render(displayPath)
 
 	leftLen := lipgloss.Width(headerLeft)
 	spaceLen := m.Width - leftLen - rightLen
@@ -441,7 +461,7 @@ func (m PagerModel) View() string {
 		spaceLen = 1
 	}
 	headerLine := headerLeft + strings.Repeat(" ", spaceLen) + headerRight
-	headerRendered := m.Theme.PagerHeader.Width(m.Width).MaxHeight(1).Render(headerLine)
+	headerRendered := render.ApplyLineBackground(headerLine, m.Width, m.Theme.Scheme.StatusBarBg)
 
 	// 2. Middle Viewport (strictly m.Height - 2 lines)
 	vpHeight := m.Height - 2
@@ -482,9 +502,13 @@ func (m PagerModel) View() string {
 	rightRendered := m.Theme.StatusPill.Render(rightInfo)
 	rLen := lipgloss.Width(rightRendered)
 
+	backHint := "b/esc back"
+	if m.Standalone {
+		backHint = "esc quit"
+	}
 	hintsCandidates := []string{
-		" ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • esc back • q quit ",
-		" ↑/↓ scroll • / search • r raw • l lines • ? help • q quit ",
+		fmt.Sprintf(" ↑/↓ scroll • / search • r raw • l lines • t theme • ? help • %s • q quit ", backHint),
+		fmt.Sprintf(" ↑/↓ scroll • / search • r raw • l lines • ? help • %s • q quit ", backHint),
 		" ↑/↓ • / search • r raw • l lines • ? help • q ",
 		" ? help • q quit ",
 		" ",
@@ -508,7 +532,7 @@ func (m PagerModel) View() string {
 		footerSpaces = 1
 	}
 	footerLine := hintRendered + strings.Repeat(" ", footerSpaces) + rightRendered
-	footerRendered := m.Theme.StatusBar.Width(m.Width).MaxHeight(1).Render(footerLine)
+	footerRendered := render.ApplyLineBackground(footerLine, m.Width, m.Theme.Scheme.StatusBarBg)
 
 	// Combine strictly into m.Height lines
 	return headerRendered + "\n" + viewportView + "\n" + footerRendered

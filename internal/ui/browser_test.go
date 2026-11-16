@@ -173,3 +173,92 @@ func TestPagerStatusPillAndSearchVisibleAt80Cols(t *testing.T) {
 	}
 }
 
+func assertNoUnguardedResets(t *testing.T, line string, expectedBgSeq string, expectedWidth int, label string) {
+	t.Helper()
+	if !strings.HasPrefix(line, expectedBgSeq) {
+		t.Fatalf("%s: expected line to start with %q, got %q", label, expectedBgSeq, line)
+	}
+	if !strings.HasSuffix(line, "\x1b[0m") {
+		t.Fatalf("%s: expected line to end with \\x1b[0m, got %q", label, line)
+	}
+	// Strip the final reset and verify every inner reset is immediately followed by a 24-bit background sequence
+	inner := strings.TrimSuffix(line, "\x1b[0m")
+	idx := 0
+	for {
+		pos := strings.Index(inner[idx:], "\x1b[0m")
+		if pos < 0 {
+			break
+		}
+		after := inner[idx+pos+len("\x1b[0m"):]
+		if !strings.HasPrefix(after, "\x1b[48;2;") {
+			t.Fatalf("%s: found unguarded \\x1b[0m reset without background sequence at %q", label, inner[idx+pos:])
+		}
+		idx += pos + len("\x1b[0m")
+	}
+	if w := len([]rune(StripANSI(line))); w != expectedWidth {
+		t.Fatalf("%s: expected visible width %d, got %d", label, expectedWidth, w)
+	}
+}
+
+func TestLightThemeBarsHaveNoBackgroundGaps(t *testing.T) {
+	cfg := config.DefaultConfig()
+	paper := config.NewUITheme(cfg.GetScheme("PaperLight"))
+	bgSeq := "\x1b[48;2;250;250;250m"
+	sbBgSeq := "\x1b[48;2;241;245;249m"
+
+	// 1. Pager top & bottom bars
+	pager, err := NewPagerModel("docs/sample.md", "# Title\n\n| A | B |\n| - | - |\n| 1 | 2 |\n", paper, "formatted", false, true)
+	if err != nil {
+		t.Fatalf("NewPagerModel failed: %v", err)
+	}
+	pager, _ = pager.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	pLines := strings.Split(pager.View(), "\n")
+	if len(pLines) != 24 {
+		t.Fatalf("expected 24 lines in pager view, got %d", len(pLines))
+	}
+	assertNoUnguardedResets(t, pLines[0], sbBgSeq, 80, "pager header")
+	assertNoUnguardedResets(t, pLines[len(pLines)-1], sbBgSeq, 80, "pager footer")
+
+	// 2. Browser top & bottom bars
+	files := []discovery.MarkdownFile{
+		{Name: "README.md", RelativePath: "README.md", ModifiedAt: time.Now()},
+	}
+	browser := NewBrowserModel(files, paper, "modified")
+	browser, _ = browser.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	bLines := strings.Split(browser.View(), "\n")
+	if len(bLines) != 24 {
+		t.Fatalf("expected 24 lines in browser view, got %d", len(bLines))
+	}
+	assertNoUnguardedResets(t, bLines[0], bgSeq, 80, "browser header")
+	assertNoUnguardedResets(t, bLines[len(bLines)-1], sbBgSeq, 80, "browser footer")
+}
+
+func TestPagerBackKeyInFolderMode(t *testing.T) {
+	theme := config.NewUITheme(config.DefaultPaperLight())
+
+	// Folder mode (standalone=false): pressing 'b' returns to browser
+	pagerFolder, err := NewPagerModel("README.md", "# Hello\n", theme, "formatted", false, false)
+	if err != nil {
+		t.Fatalf("NewPagerModel failed: %v", err)
+	}
+	pagerFolder, _ = pagerFolder.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	if !strings.Contains(StripANSI(pagerFolder.View()), "b/esc back") {
+		t.Fatalf("expected footer hint to advertise 'b/esc back' in folder mode")
+	}
+	pagerFolder, _ = pagerFolder.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	if !pagerFolder.ReturnToBrowser {
+		t.Fatalf("expected 'b' in folder mode to set ReturnToBrowser=true")
+	}
+
+	// Standalone mode (standalone=true): pressing 'b' should not quit or return
+	pagerSolo, err := NewPagerModel("README.md", "# Hello\n", theme, "formatted", false, true)
+	if err != nil {
+		t.Fatalf("NewPagerModel failed: %v", err)
+	}
+	pagerSolo, _ = pagerSolo.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+	pagerSolo, _ = pagerSolo.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	if pagerSolo.ReturnToBrowser || pagerSolo.Canceled {
+		t.Fatalf("expected 'b' in standalone mode to be a no-op, got ReturnToBrowser=%v Canceled=%v", pagerSolo.ReturnToBrowser, pagerSolo.Canceled)
+	}
+}
+

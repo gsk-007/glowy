@@ -68,6 +68,32 @@ func DefaultSlateDark() Scheme {
 	}
 }
 
+// DefaultObsidianGlow returns a high-contrast Jewel & Ice dark scheme.
+func DefaultObsidianGlow() Scheme {
+	return Scheme{
+		Name:                "ObsidianGlow",
+		Background:          "#090D16",
+		Foreground:          "#F1F5F9",
+		CursorAccent:        "#00E5FF",
+		SelectionBackground: "#163A5F",
+		Muted:               "#6E85B7",
+		Border:              "#1E3A5F",
+		StatusBarBg:         "#0D1526",
+		StatusBarFg:         "#BAE6FD",
+		SearchHighlightBg:   "#FACC15",
+		SearchHighlightFg:   "#000000",
+		Markdown: MarkdownColors{
+			H1:           "#22D3EE",
+			H2:           "#34D399",
+			H3:           "#C084FC",
+			CodeInlineFg: "#FB7185",
+			CodeBlockBg:  "#111A2E",
+			QuoteFg:      "#7DD3FC",
+			LinkFg:       "#38BDF8",
+		},
+	}
+}
+
 // DefaultPaperLight returns the default PaperLight scheme.
 func DefaultPaperLight() Scheme {
 	return Scheme{
@@ -94,18 +120,51 @@ func DefaultPaperLight() Scheme {
 	}
 }
 
+// DefaultCrystalLight returns a crisp Jewel & Ice light scheme.
+func DefaultCrystalLight() Scheme {
+	return Scheme{
+		Name:                "CrystalLight",
+		Background:          "#FFFFFF",
+		Foreground:          "#0F172A",
+		CursorAccent:        "#0066FF",
+		SelectionBackground: "#CFE4FF",
+		Muted:               "#5B7399",
+		Border:              "#93C5FD",
+		StatusBarBg:         "#EAF2FF",
+		StatusBarFg:         "#1E3A8A",
+		SearchHighlightBg:   "#FDE047",
+		SearchHighlightFg:   "#000000",
+		Markdown: MarkdownColors{
+			H1:           "#0066FF",
+			H2:           "#00A878",
+			H3:           "#7C3AED",
+			CodeInlineFg: "#E11D48",
+			CodeBlockBg:  "#EFF6FF",
+			QuoteFg:      "#3B82F6",
+			LinkFg:       "#0284C7",
+		},
+	}
+}
+
+// DefaultSchemes returns the 4 built-in schemes (2 dark, 2 light).
+func DefaultSchemes() []Scheme {
+	return []Scheme{
+		DefaultSlateDark(),
+		DefaultObsidianGlow(),
+		DefaultPaperLight(),
+		DefaultCrystalLight(),
+	}
+}
+
 // DefaultConfig returns the default application configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		DefaultScheme: "SlateDark",
+		DefaultScheme: "ObsidianGlow",
 		LineNumbers:   false,
 		DefaultMode:   "formatted",
 		SortBy:        "modified",
 		WordWrap:      "dynamic",
-		Schemes: []Scheme{
-			DefaultSlateDark(),
-			DefaultPaperLight(),
-		},
+		Schemes:       DefaultSchemes(),
 	}
 }
 
@@ -158,12 +217,25 @@ func LoadConfig() (*Config, error) {
 		return DefaultConfig(), err
 	}
 
-	// Ensure fallback schemes exist
+	// Ensure all built-in schemes are available even for pre-existing settings.json files.
 	if len(cfg.Schemes) == 0 {
-		cfg.Schemes = []Scheme{DefaultSlateDark(), DefaultPaperLight()}
+		cfg.Schemes = DefaultSchemes()
+	} else {
+		for _, def := range DefaultSchemes() {
+			found := false
+			for _, existing := range cfg.Schemes {
+				if strings.EqualFold(existing.Name, def.Name) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				cfg.Schemes = append(cfg.Schemes, def)
+			}
+		}
 	}
 	if cfg.DefaultScheme == "" {
-		cfg.DefaultScheme = "SlateDark"
+		cfg.DefaultScheme = "ObsidianGlow"
 	}
 	if cfg.DefaultMode == "" {
 		cfg.DefaultMode = "formatted"
@@ -198,7 +270,7 @@ func (c *Config) GetScheme(name string) Scheme {
 		return c.Schemes[0]
 	}
 
-	return DefaultSlateDark()
+	return DefaultObsidianGlow()
 }
 
 // ResolveWrapWidth returns flagWidth if > 0, or a numeric WordWrap from settings.json if configured, else 0 (dynamic).
