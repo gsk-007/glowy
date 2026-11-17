@@ -303,7 +303,7 @@ func TestTableWrappingPreservesAllContent(t *testing.T) {
 		"Created ↓",
 		"Syntax-",
 		"Highlighted Raw Markdown",
-		"231 │",
+		"278 │",
 	}
 	for _, phrase := range expectedPhrases {
 		if !strings.Contains(plain, phrase) {

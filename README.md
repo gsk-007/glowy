@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.1.1-emerald.svg)](https://github.com/glowy/cli/releases)
+[![Release](https://img.shields.io/badge/release-v0.2.0-emerald.svg)](https://github.com/glowy/cli/releases)
 
 `glowy` is a fast, Windows-first (and cross-platform) CLI and TUI Markdown reader built in Go, designed to eliminate terminal rendering, paging, and line-numbering pitfalls. It renders local Markdown files and standard input with zero external dependencies, native mouse text selection, and dynamic 24-bit TrueColor themes.
 
@@ -16,7 +16,9 @@
 - **Case-Insensitive In-Document Search (`/`):** Search within documents with ANSI-safe match highlighting using scheme colors (`searchHighlightBg` / `searchHighlightFg`) and navigate matches using `n` (next) and `N` (previous).
 - **Native Mouse Text Selection:** Leaves terminal mouse tracking unhijacked (`tea.WithAltScreen()` only), allowing native click-and-drag mouse text selection across all views without holding `Shift`.
 - **Vertical Card File Browser:** Sleek 2-line card feed displaying filenames, relative timestamps, and dimmed directory subtexts with live `/` fuzzy search and `s` sort cycling (`Modified ↓`, `Name A-Z`, `Created ↓`).
-- **Windows Terminal-Style `settings.json` Themes:** Unified TrueColor color schemes styling both the TUI chrome (status bar, borders, selection, highlights) and Markdown elements. Live preview schemes with `t` in the TUI or run `glowy themes` in the CLI.
+- **Rounded Tables & Clean Headings:** GFM tables render with rounded borders, bold accent headers, column alignments, and subtle row dividers; headings drop literal `#`/`##` prefixes for clean typographic hierarchy.
+- **Translucent Modal Overlays:** Help (`?`) and Theme (`t`) dialogs render over a dimmed, frosted backdrop so surrounding browser and document content stays softly visible.
+- **Windows Terminal-Style `settings.json` Themes:** Unified TrueColor color schemes styling both the TUI chrome and Markdown elements (`ObsidianGlow` default, `SlateDark`, `CrystalLight`, and `PaperLight`). Live preview schemes with `t` in the TUI or run `glowy themes` in the CLI.
 
 ---
 
@@ -33,7 +35,7 @@ Requirements: Go 1.22 or higher.
 ```bash
 git clone https://github.com/glowy/cli.git
 cd cli
-go build -ldflags="-s -w -X main.version=v0.1.1" -o glowy.exe ./cmd/glowy
+go build -ldflags="-s -w -X main.version=v0.2.0" -o glowy.exe ./cmd/glowy
 ```
 
 ---
@@ -108,7 +110,7 @@ glowy themes
 | `--pager` | `-p` | `bool` | Open document directly in the built-in interactive TUI pager. |
 | `--raw` | `-r` | `bool` | Render syntax-highlighted raw Markdown source instead of formatted output. |
 | `--line-numbers` | `-l` | `bool` | Display raw file line numbers in the left gutter (works in stdout and pager). |
-| `--style` | `-s` | `string` | Override active color scheme (e.g. `SlateDark`, `PaperLight`). |
+| `--style` | `-s` | `string` | Override active color scheme (`ObsidianGlow`, `SlateDark`, `CrystalLight`, `PaperLight`, or custom). |
 | `--width` | `-w` | `int` | Override dynamic terminal width wrapping with a fixed column count. |
 | `--themes` | | `bool` | List available color schemes with color swatches and config path. |
 | `--version` | `-v` | `bool` | Print version, commit hash, and build date. |
@@ -128,7 +130,7 @@ glowy themes
 | `Home` / `g` | Jump to first file card |
 | `End` / `G` | Jump to last file card |
 | `Enter` | Open selected file in Document Pager |
-| `/` | Activate live fuzzy search filter across filenames and directory paths |
+| `/` | Activate live fuzzy search filter across filenames and directory paths (`↑`/`↓` still moves cursor) |
 | `s` | Cycle sort order: `Modified ↓` → `Name A-Z` → `Created ↓` |
 | `t` | Open interactive Theme Switcher modal |
 | `?` | Toggle Help Menu overlay |
@@ -151,6 +153,7 @@ glowy themes
 | `l` | Toggle raw source line numbers gutter on/off |
 | `t` | Open interactive Theme Switcher modal |
 | `?` | Toggle Help Menu overlay |
+| `b` | Return directly to File Browser (when opened from folder mode) |
 | `Esc` / `Backspace` | Clear search / Close modal / Return to File Browser (or exit if opened via `-p`) |
 | `q` / `Ctrl+C` | Quit application |
 
@@ -167,12 +170,34 @@ glowy themes
 ### `settings.json` Schema
 ```json
 {
-  "defaultScheme": "SlateDark",
+  "defaultScheme": "ObsidianGlow",
   "lineNumbers": false,
   "defaultMode": "formatted",
   "sortBy": "modified",
   "wordWrap": "dynamic",
   "schemes": [
+    {
+      "name": "ObsidianGlow",
+      "background": "#090D16",
+      "foreground": "#F1F5F9",
+      "cursorAccent": "#00E5FF",
+      "selectionBackground": "#163A5F",
+      "muted": "#6E85B7",
+      "border": "#1E3A5F",
+      "statusBarBg": "#0D1526",
+      "statusBarFg": "#BAE6FD",
+      "searchHighlightBg": "#FACC15",
+      "searchHighlightFg": "#000000",
+      "markdown": {
+        "h1": "#22D3EE",
+        "h2": "#34D399",
+        "h3": "#C084FC",
+        "codeInlineFg": "#FB7185",
+        "codeBlockBg": "#111A2E",
+        "quoteFg": "#7DD3FC",
+        "linkFg": "#38BDF8"
+      }
+    },
     {
       "name": "SlateDark",
       "background": "#121417",
@@ -193,6 +218,28 @@ glowy themes
         "codeBlockBg": "#1A1D24",
         "quoteFg": "#94A3B8",
         "linkFg": "#60A5FA"
+      }
+    },
+    {
+      "name": "CrystalLight",
+      "background": "#FFFFFF",
+      "foreground": "#0F172A",
+      "cursorAccent": "#0066FF",
+      "selectionBackground": "#CFE4FF",
+      "muted": "#5B7399",
+      "border": "#93C5FD",
+      "statusBarBg": "#EAF2FF",
+      "statusBarFg": "#1E3A8A",
+      "searchHighlightBg": "#FDE047",
+      "searchHighlightFg": "#000000",
+      "markdown": {
+        "h1": "#0066FF",
+        "h2": "#00A878",
+        "h3": "#7C3AED",
+        "codeInlineFg": "#E11D48",
+        "codeBlockBg": "#EFF6FF",
+        "quoteFg": "#3B82F6",
+        "linkFg": "#0284C7"
       }
     },
     {
