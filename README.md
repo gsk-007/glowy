@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v0.2.0-emerald.svg)](https://github.com/glowy/cli/releases)
+[![Release](https://img.shields.io/badge/release-v0.1.2-emerald.svg)](https://github.com/glowy/cli/releases)
 
 `glowy` is a fast, Windows-first (and cross-platform) CLI and TUI Markdown reader built in Go, designed to eliminate terminal rendering, paging, and line-numbering pitfalls. It renders local Markdown files and standard input with zero external dependencies, native mouse text selection, and dynamic 24-bit TrueColor themes.
 
@@ -35,7 +35,7 @@ Requirements: Go 1.22 or higher.
 ```bash
 git clone https://github.com/glowy/cli.git
 cd cli
-go build -ldflags="-s -w -X main.version=v0.2.0" -o glowy.exe ./cmd/glowy
+go build -ldflags="-s -w -X main.version=v0.1.2" -o glowy.exe ./cmd/glowy
 ```
 
 ---
